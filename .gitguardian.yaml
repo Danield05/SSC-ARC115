@@ -1,0 +1,7 @@
+# Configuración de GitGuardian (escaneo de secretos en los PR).
+# Los archivos de ejemplo solo contienen valores ficticios, nunca claves reales.
+version: 2
+secret:
+  ignored_paths:
+    - .env.example
+    - "**/secrets.example.h"
