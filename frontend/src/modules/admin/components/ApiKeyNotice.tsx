@@ -1,4 +1,7 @@
+import { Check, Copy, KeyRound } from 'lucide-react'
 import { useState } from 'react'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   deviceId: string
@@ -19,20 +22,24 @@ export default function ApiKeyNotice({ deviceId, apiKey, onClose }: Props) {
   }
 
   return (
-    <div className="notice">
-      <p>
-        <strong>Clave de {deviceId}.</strong> Cópiala ahora: no se vuelve a mostrar. Va en el{' '}
-        <code>secrets.h</code> del firmware.
-      </p>
-      <code className="key">{apiKey}</code>
-      <div className="row">
-        <button type="button" onClick={copy}>
-          {copied ? 'Copiada' : 'Copiar'}
-        </button>
-        <button type="button" className="secondary" onClick={onClose}>
-          Ya la guardé
-        </button>
-      </div>
-    </div>
+    <Alert className="border-warning/50 bg-warning/10">
+      <KeyRound />
+      <AlertTitle>Clave de {deviceId}</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>
+          Cópiala ahora: no se vuelve a mostrar. Va en el <code>secrets.h</code> del firmware.
+        </p>
+        <code className="bg-background block rounded-md border px-3 py-2 text-xs break-all">{apiKey}</code>
+        <div className="flex gap-2">
+          <Button size="sm" onClick={copy}>
+            {copied ? <Check /> : <Copy />}
+            {copied ? 'Copiada' : 'Copiar'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={onClose}>
+            Ya la guardé
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
   )
 }

@@ -1,4 +1,13 @@
+import { KeyRound, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import ApiKeyNotice from '../components/ApiKeyNotice'
 import DeviceForm from '../components/DeviceForm'
@@ -10,6 +19,7 @@ export default function DevicesPage() {
   const { devices, loading, error, create, setActive, rotate } = useDevices()
   const [shown, setShown] = useState<{ id: string; key: string } | null>(null)
   const [actionError, setActionError] = useState('')
+  const [open, setOpen] = useState(false)
 
   async function run(action: () => Promise<void>) {
     setActionError('')
@@ -28,54 +38,93 @@ export default function DevicesPage() {
 
   return (
     <>
-      <h1>Dispositivos</h1>
+      <PageHeader
+        title="Dispositivos"
+        description={
+          canEdit
+            ? 'Registra los dispositivos y controla cuáles pueden enviar mediciones.'
+            : 'Dispositivos registrados (solo lectura).'
+        }
+        actions={
+          canEdit && (
+            <Button onClick={() => setOpen(true)}>
+              <Plus />
+              Registrar dispositivo
+            </Button>
+          )
+        }
+      />
+
       {shown && <ApiKeyNotice deviceId={shown.id} apiKey={shown.key} onClose={() => setShown(null)} />}
-      {canEdit && (
-        <DeviceForm
-          onCreate={async (data) => {
-            setShown({ id: data.device_id, key: await create(data) })
-          }}
-        />
+      {(error || actionError) && (
+        <Alert variant="destructive">
+          <AlertDescription>{error || actionError}</AlertDescription>
+        </Alert>
       )}
-      {error && <p className="error">{error}</p>}
-      {actionError && <p className="error">{actionError}</p>}
-      {loading ? (
-        <p>Cargando…</p>
-      ) : devices.length === 0 ? (
-        <p>No hay dispositivos registrados.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Identificador</th>
-              <th>Nombre</th>
-              <th>Promotor</th>
-              <th>Estado</th>
-              {canEdit && <th>Acciones</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {devices.map((d) => (
-              <tr key={d.device_id}>
-                <td>{d.device_id}</td>
-                <td>{d.name}</td>
-                <td>{d.promoter_email}</td>
-                <td>{d.active ? 'Activo' : 'Desactivado'}</td>
-                {canEdit && (
-                  <td className="row">
-                    <button type="button" className="secondary" onClick={() => run(() => setActive(d.device_id, !d.active))}>
-                      {d.active ? 'Desactivar' : 'Activar'}
-                    </button>
-                    <button type="button" className="secondary" onClick={() => onRotate(d.device_id)}>
-                      Nueva clave
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <p className="text-muted-foreground p-6 text-sm">Cargando…</p>
+          ) : devices.length === 0 ? (
+            <p className="text-muted-foreground p-6 text-sm">No hay dispositivos registrados.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Identificador</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Promotor</TableHead>
+                  <TableHead>Estado</TableHead>
+                  {canEdit && <TableHead className="text-right">Acciones</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {devices.map((d) => (
+                  <TableRow key={d.device_id}>
+                    <TableCell className="font-mono text-xs">{d.device_id}</TableCell>
+                    <TableCell>{d.name}</TableCell>
+                    <TableCell>{d.promoter_email}</TableCell>
+                    <TableCell>
+                      <Badge variant={d.active ? 'default' : 'secondary'}>{d.active ? 'Activo' : 'Desactivado'}</Badge>
+                    </TableCell>
+                    {canEdit && (
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-3">
+                          <Switch
+                            checked={d.active}
+                            onCheckedChange={(checked) => run(() => setActive(d.device_id, checked))}
+                            aria-label={`${d.active ? 'Desactivar' : 'Activar'} ${d.device_id}`}
+                          />
+                          <Button variant="outline" size="sm" onClick={() => onRotate(d.device_id)}>
+                            <KeyRound />
+                            Nueva clave
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar dispositivo</DialogTitle>
+            <DialogDescription>Se generará una clave para el firmware. Solo se muestra una vez.</DialogDescription>
+          </DialogHeader>
+          <DeviceForm
+            onCreate={async (data) => {
+              setShown({ id: data.device_id, key: await create(data) })
+            }}
+            onDone={() => setOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

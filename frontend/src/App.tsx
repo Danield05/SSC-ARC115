@@ -1,9 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import DevicesPage from './modules/admin/pages/DevicesPage'
+import UsersPage from './modules/admin/pages/UsersPage'
 import AuthProvider from './modules/auth/components/AuthProvider'
 import ProtectedRoute from './modules/auth/components/ProtectedRoute'
 import LoginPage from './modules/auth/pages/LoginPage'
-import DevicesPage from './modules/admin/pages/DevicesPage'
-import UsersPage from './modules/admin/pages/UsersPage'
+import DashboardPage from './modules/dashboard/pages/DashboardPage'
 import PatientsPage from './modules/patients/pages/PatientsPage'
 import Layout from './shared/components/Layout'
 
@@ -20,7 +21,8 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<PatientsPage />} />
+            <Route index element={<DashboardPage />} />
+            <Route path="patients" element={<PatientsPage />} />
             <Route
               path="admin/devices"
               element={

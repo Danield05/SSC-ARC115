@@ -1,34 +1,37 @@
-import { NavLink, Outlet } from 'react-router-dom'
-import { useAuth } from '../../modules/auth/hooks/useAuth'
-import { ROLE_LABELS } from '../../modules/auth/types'
+import { Outlet, useLocation } from 'react-router-dom'
+import { Separator } from '@/components/ui/separator'
+import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import AppSidebar from './AppSidebar'
+import SiteFooter from './SiteFooter'
+import ThemeToggle from './ThemeToggle'
+
+const TITLES: Record<string, string> = {
+  '/': 'Resumen',
+  '/patients': 'Pacientes',
+  '/admin/devices': 'Dispositivos',
+  '/admin/users': 'Usuarios',
+}
 
 export default function Layout() {
-  const { user, logout } = useAuth()
-  if (!user) return null
+  const { pathname } = useLocation()
 
   return (
-    <>
-      <header className="topbar">
-        <strong>SSC-ARC115</strong>
-        <nav>
-          <NavLink to="/" end>
-            Pacientes
-          </NavLink>
-          {(user.role === 'admin' || user.role === 'viewer') && (
-            <NavLink to="/admin/devices">Dispositivos</NavLink>
-          )}
-          {user.role === 'admin' && <NavLink to="/admin/users">Usuarios</NavLink>}
-        </nav>
-        <span className="topbar-user">
-          {user.email} · {ROLE_LABELS[user.role]}
-          <button type="button" onClick={logout}>
-            Salir
-          </button>
-        </span>
-      </header>
-      <main>
-        <Outlet />
-      </main>
-    </>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="bg-background/80 sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-center" />
+          <span className="text-sm font-medium">{TITLES[pathname] ?? ''}</span>
+          <div className="ml-auto">
+            <ThemeToggle />
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-6xl flex-1 space-y-6 p-4 md:p-6">
+          <Outlet />
+        </main>
+        <SiteFooter />
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
