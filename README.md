@@ -48,8 +48,8 @@ El detalle de cada variable se documenta en el manual técnico (`docs/`) a medid
 
 ## Flujo de trabajo con Git
 
-- `main` es la rama estable y está protegida.
-- Cada cambio se hace en una rama `feature/<módulo>-<descripción>` y entra por pull request con el CI en verde.
+- `main` es la rama estable y está protegida; `development` es la rama de integración.
+- Cada cambio se hace en una rama `feature/<módulo>-<descripción>` que sale de `development` y entra a ella por pull request con el CI en verde. Cuando `development` está estable, se fusiona a `main` por pull request.
 - Commits cortos en español con el formato `tipo(módulo): descripción`, por ejemplo `feat(mediciones): validar lote del ESP32`.
 
 ## Equipo
