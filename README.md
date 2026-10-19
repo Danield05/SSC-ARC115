@@ -46,6 +46,31 @@ Este repositorio **no contiene secretos**. Las claves, contraseñas y direccione
 
 El detalle de cada variable se documenta en el manual técnico (`docs/`) a medida que se implementa cada módulo.
 
+## Base de datos local
+
+En desarrollo la API usa DynamoDB Local en Docker (los datos viven en memoria: al apagar el contenedor se borran).
+
+```powershell
+docker compose up -d                                   # raíz del repo: base en el puerto 8001
+cd backend
+.venv\Scripts\Activate.ps1
+python scripts/create_tables.py                         # crea las 4 tablas y un dispositivo de prueba
+python scripts/create_admin.py --local admin@example.com   # crea el primer administrador (pide la contraseña)
+```
+
+### Consultar los datos
+
+- **Interfaz web (recomendada):** `dynamodb-admin`. Abre una terminal y ejecuta:
+  ```powershell
+  $env:DYNAMO_ENDPOINT="http://localhost:8001"; $env:AWS_REGION="us-east-1"; $env:AWS_ACCESS_KEY_ID="local"; $env:AWS_SECRET_ACCESS_KEY="local"; $env:PORT="8002"
+  npx dynamodb-admin
+  ```
+  Luego abre <http://localhost:8002>: ahí se ven las tablas `users`, `devices`, `patients` y `measurements`. El `PORT=8002` es necesario porque la base ya usa el 8001.
+- **Por terminal:** desde `backend/` con el entorno activado, `python scripts/show_tables.py` imprime el contenido de las tablas (sin hashes).
+- **Aplicación de escritorio:** [NoSQL Workbench](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/workbench.html) de AWS: *Add connection* → *DynamoDB local* → host `localhost`, puerto `8001`.
+
+DataGrip y otros clientes SQL no sirven para esto: DynamoDB no es una base SQL.
+
 ## Flujo de trabajo con Git
 
 - `main` es la rama estable y está protegida; `development` es la rama de integración.
