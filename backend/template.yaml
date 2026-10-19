@@ -28,6 +28,7 @@ Globals:
         TABLE_DEVICES: !Ref DevicesTable
         TABLE_PATIENTS: !Ref PatientsTable
         TABLE_MEASUREMENTS: !Ref MeasurementsTable
+        TABLE_USERS: !Ref UsersTable
         GMAIL_USER: !Ref GmailUser
         GMAIL_APP_PASSWORD: !Ref GmailAppPassword
         JWT_SECRET: !Ref JwtSecret
@@ -47,7 +48,7 @@ Resources:
       CorsConfiguration:
         AllowOrigins:
           - !Ref AllowedOrigin
-        AllowMethods: [GET, POST, OPTIONS]
+        AllowMethods: [GET, POST, PATCH, OPTIONS]
         AllowHeaders: [authorization, content-type, x-api-key]
 
   ApiFunction:
@@ -62,6 +63,8 @@ Resources:
             TableName: !Ref PatientsTable
         - DynamoDBCrudPolicy:
             TableName: !Ref MeasurementsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
       Events:
         Any:
           Type: HttpApi
@@ -106,6 +109,17 @@ Resources:
           KeyType: HASH
         - AttributeName: ts
           KeyType: RANGE
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
 
 Outputs:
   ApiUrl:
