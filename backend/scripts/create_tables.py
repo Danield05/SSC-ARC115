@@ -1,4 +1,4 @@
-"""Crea las 3 tablas en la base local y carga datos de prueba.
+"""Crea las 4 tablas en la base local y carga datos de prueba.
 
 Uso (con el servidor local en marcha: `moto_server -p 8001`):
     python scripts/create_tables.py
@@ -43,12 +43,14 @@ def main() -> None:
     devices = create(s.table_devices, [("device_id", "HASH")])
     create(s.table_patients, [("patient_code", "HASH")])
     create(s.table_measurements, [("patient_code", "HASH"), ("ts", "RANGE")])
+    create(s.table_users, [("email", "HASH")])
     devices.put_item(
         Item={
             "device_id": "ESP32-GP03-01",
             "api_key_hash": hash_api_key(DEV_API_KEY),
             "promoter_email": "promotor@example.com",
             "name": "Dispositivo de desarrollo",
+            "active": True,
         }
     )
     print(f"Dispositivo de prueba listo: ESP32-GP03-01 / x-api-key: {DEV_API_KEY}")

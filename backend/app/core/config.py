@@ -10,6 +10,7 @@ class Settings:
     table_devices: str
     table_patients: str
     table_measurements: str
+    table_users: str
     gmail_user: str
     gmail_app_password: str
     allowed_origin: str
@@ -27,6 +28,7 @@ def get_settings() -> Settings:
         table_devices=env("TABLE_DEVICES", "devices"),
         table_patients=env("TABLE_PATIENTS", "patients"),
         table_measurements=env("TABLE_MEASUREMENTS", "measurements"),
+        table_users=env("TABLE_USERS", "users"),
         gmail_user=env("GMAIL_USER", ""),
         gmail_app_password=env("GMAIL_APP_PASSWORD", ""),
         allowed_origin=env("ALLOWED_ORIGIN", "http://localhost:5173"),
