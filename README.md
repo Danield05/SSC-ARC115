@@ -23,7 +23,6 @@ El dispositivo trabaja sin internet: guarda todo en la microSD y sincroniza el l
 | `firmware/` | Código del ESP32 (C++, Arduino) |
 | `backend/` | API en Python (FastAPI) desplegada en AWS Lambda con SAM |
 | `frontend/` | Aplicación web en React + Vite + TypeScript |
-| `docs/` | Plan, manuales, bitácora y referencias |
 | `.github/workflows/` | Pipelines de GitHub Actions (CI y despliegue) |
 
 Cada módulo del backend y del frontend se organiza por funcionalidad (dispositivos, pacientes, mediciones, notificaciones, autenticación).
@@ -34,7 +33,7 @@ ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga 
 
 ## Estado
 
-En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, administración de dispositivos y usuarios, CI. En curso: recepción de mediciones (`POST /measurements`), correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026. El plan, la rúbrica y el calendario están en [`docs/PLAN.md`](docs/PLAN.md).
+En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, administración de dispositivos y usuarios, CI. En curso: recepción de mediciones (`POST /measurements`), correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
 
 ## Configuración y secretos
 
@@ -44,7 +43,7 @@ Este repositorio **no contiene secretos**. Las claves, contraseñas y direccione
 - Firmware: archivo `secrets.h` local (hay un `secrets.example.h` de ejemplo).
 - Pipelines: GitHub Secrets.
 
-El detalle de cada variable se documenta en el manual técnico (`docs/`) a medida que se implementa cada módulo.
+Las variables del backend y del frontend, con valores de ejemplo, están en [`.env.example`](.env.example).
 
 ## Ejecutar el proyecto en local
 
