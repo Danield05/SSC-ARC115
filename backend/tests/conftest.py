@@ -25,13 +25,29 @@ def aws(monkeypatch):
     _clear_caches()
     with mock_aws():
         db = boto3.resource("dynamodb")
-        for name, key in (("devices", "device_id"), ("users", "email")):
+        for name, key in (
+            ("devices", "device_id"),
+            ("users", "email"),
+            ("patients", "patient_code"),
+        ):
             db.create_table(
                 TableName=name,
                 BillingMode="PAY_PER_REQUEST",
                 AttributeDefinitions=[{"AttributeName": key, "AttributeType": "S"}],
                 KeySchema=[{"AttributeName": key, "KeyType": "HASH"}],
             )
+        db.create_table(
+            TableName="measurements",
+            BillingMode="PAY_PER_REQUEST",
+            AttributeDefinitions=[
+                {"AttributeName": "patient_code", "AttributeType": "S"},
+                {"AttributeName": "ts", "AttributeType": "S"},
+            ],
+            KeySchema=[
+                {"AttributeName": "patient_code", "KeyType": "HASH"},
+                {"AttributeName": "ts", "KeyType": "RANGE"},
+            ],
+        )
         yield
     _clear_caches()
 
