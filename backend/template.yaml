@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: SSC-ARC115 (GP03) - API de monitoreo de salud comunitario
+
+Parameters:
+  GmailUser:
+    Type: String
+    Default: ""
+  GmailAppPassword:
+    Type: String
+    NoEcho: true
+    Default: ""
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    Default: ""
+  AllowedOrigin:
+    Type: String
+    Default: "http://localhost:5173"
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 15
+    MemorySize: 256
+    Environment:
+      Variables:
+        TABLE_DEVICES: !Ref DevicesTable
+        TABLE_PATIENTS: !Ref PatientsTable
+        TABLE_MEASUREMENTS: !Ref MeasurementsTable
+        TABLE_USERS: !Ref UsersTable
+        GMAIL_USER: !Ref GmailUser
+        GMAIL_APP_PASSWORD: !Ref GmailAppPassword
+        JWT_SECRET: !Ref JwtSecret
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+        TEMP_LOW_C: "35"
+        TEMP_HIGH_C: "38"
+        SPO2_MIN: "92"
+        LOG_LEVEL: INFO
+
+Resources:
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowMethods: [GET, POST, PATCH, OPTIONS]
+        AllowHeaders: [authorization, content-type, x-api-key]
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: app.main.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DevicesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref PatientsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MeasurementsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Events:
+        Any:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+
+  DevicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: device_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: device_id
+          KeyType: HASH
+
+  PatientsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: patient_code
+          AttributeType: S
+      KeySchema:
+        - AttributeName: patient_code
+          KeyType: HASH
+
+  MeasurementsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: patient_code
+          AttributeType: S
+        - AttributeName: ts
+          AttributeType: S
+      KeySchema:
+        - AttributeName: patient_code
+          KeyType: HASH
+        - AttributeName: ts
+          KeyType: RANGE
+
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: email
+          KeyType: HASH
+
+Outputs:
+  ApiUrl:
+    Description: URL base de la API (usar como VITE_API_URL)
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"

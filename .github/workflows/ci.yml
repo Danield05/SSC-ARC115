@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - development
+      - "feature/**"
+      - "fix/**"
+      - "hotfix/**"
+  pull_request:
+    branches:
+      - main
+      - development
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+permissions:
+  contents: read
+
+jobs:
+  # ───────────── Backend ─────────────
+  backend-build:
+    name: Backend · Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Verificar que la aplicación importa
+        run: python -c "import app.main"
+
+      - name: Setup SAM
+        uses: aws-actions/setup-sam@v2
+
+      - name: Validar plantilla SAM
+        run: sam validate --lint --region us-east-1
+
+  backend-test:
+    name: Backend · Test
+    needs: backend-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Pruebas
+        run: pytest
+
+  backend-quality:
+    name: Backend · Quality
+    needs: backend-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt pip-audit
+
+      - name: Lint y seguridad del código (ruff, reglas bandit)
+        run: ruff check .
+
+      - name: Formato
+        run: ruff format --check .
+
+      - name: Vulnerabilidades en dependencias (pip-audit)
+        run: pip-audit -r requirements.txt
+
+  # ───────────── Frontend ─────────────
+  frontend-build:
+    name: Frontend · Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Build (tsc + vite)
+        run: npm run build
+
+  frontend-quality:
+    name: Frontend · Quality
+    needs: frontend-build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Vulnerabilidades en dependencias (npm audit)
+        run: npm audit --audit-level=high

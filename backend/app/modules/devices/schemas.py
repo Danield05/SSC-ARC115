@@ -1,0 +1,34 @@
+"""Modelos de datos del módulo devices."""
+
+from pydantic import BaseModel, Field
+
+from app.modules.auth.schemas import Email
+
+
+class DeviceCreate(BaseModel):
+    device_id: str = Field(min_length=3, max_length=64, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=100)
+    promoter_email: Email
+
+
+class DeviceUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    promoter_email: Email | None = None
+    active: bool | None = None
+
+
+class DeviceOut(BaseModel):
+    device_id: str
+    name: str
+    promoter_email: str
+    active: bool
+    created_at: str
+
+
+class DeviceCreated(DeviceOut):
+    api_key: str
+
+
+class ApiKeyOut(BaseModel):
+    device_id: str
+    api_key: str
