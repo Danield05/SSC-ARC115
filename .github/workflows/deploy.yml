@@ -14,6 +14,9 @@ env:
   PYTHON_VERSION: "3.12"
   NODE_VERSION: "22"
   STACK_NAME: ssc-arc115
+  # La región no es secreta. Como secreto, GitHub ocultaría "us-east-1" dentro de la URL de la API
+  # y descartaría la salida entre trabajos (el frontend se compilaba con VITE_API_URL vacía).
+  AWS_REGION: us-east-1
 
 permissions:
   contents: read
@@ -41,7 +44,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Build
         working-directory: backend
@@ -110,6 +113,10 @@ jobs:
         env:
           VITE_API_URL: ${{ needs.backend.outputs.api_url }}
         run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "VITE_API_URL llegó vacía: el frontend no sabría a qué API llamar." >&2
+            exit 1
+          fi
           npm run build
           cp dist/index.html dist/404.html
 
