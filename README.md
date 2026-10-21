@@ -29,11 +29,28 @@ Cada módulo del backend y del frontend se organiza por funcionalidad (dispositi
 
 ## Tecnologías
 
-ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · microSD · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions.
+ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · microSD · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
 
 ## Estado
 
-En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, administración de dispositivos y usuarios, CI. En curso: recepción de mediciones (`POST /measurements`), correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
+En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, administración de dispositivos y usuarios, recepción de mediciones (`POST /measurements`), CI y despliegue automático (API en AWS y frontend en GitHub Pages con dominio propio). En curso: correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
+
+## Despliegue
+
+El sistema ya está publicado:
+
+| Parte | Dónde |
+|---|---|
+| Frontend | <https://app.sistemasalud.app> (GitHub Pages, dominio propio) |
+| API | AWS: API Gateway (HTTP API) + Lambda + DynamoDB, región `us-east-1`, stack `ssc-arc115` |
+
+El despliegue es automático: cada vez que se fusiona un cambio en `main`, el workflow [`deploy.yml`](.github/workflows/deploy.yml) compila y despliega el backend con AWS SAM, prueba `GET /health` y publica el frontend. El CI (`ci.yml`) corre en cada pull request y en cada push.
+
+Secretos del repositorio (Settings → Secrets and variables → Actions): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `JWT_SECRET` y `ALLOWED_ORIGIN`. Para el frontend, Pages debe tener *Source = GitHub Actions* y el dominio personalizado configurado.
+
+El stack de AWS es único (hace de pruebas y de producción) y se elimina al terminar el curso con `sam delete`. Mientras exista, no se usan servicios fuera de Lambda, API Gateway, DynamoDB y lo que crea SAM.
+
+Para recibir mediciones, cada dispositivo se da de alta desde la página de administración; su clave `x-api-key` se muestra una sola vez.
 
 ## Configuración y secretos
 
@@ -124,6 +141,8 @@ cd frontend; npm run lint; npm run build
 Si `docker compose` falla en Windows con `docker-credential-desktop`, agrega `C:\Program Files\Docker\Docker\resources\bin` al PATH.
 
 ## Flujo de trabajo con Git
+
+Las dependencias se actualizan a mano; no hay Dependabot.
 
 - `main` es la rama estable y está protegida; `development` es la rama de integración.
 - Cada cambio se hace en una rama `feature/<módulo>-<descripción>` que sale de `development` y entra a ella por pull request con el CI en verde. Cuando `development` está estable, se fusiona a `main` por pull request.
