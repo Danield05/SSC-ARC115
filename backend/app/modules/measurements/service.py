@@ -66,7 +66,7 @@ def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, l
     for record in batch.records:
         item = _to_item(batch.device_id, record, received_at)
         if repository.put_measurement(item):
-            patients_repository.touch_patient(item["patient_code"], item["ts"])
+            patients_repository.touch_patient(item["patient_code"], item["ts"], batch.device_id)
             saved.append(record.record_id)
             new_items.append(item)
         else:
