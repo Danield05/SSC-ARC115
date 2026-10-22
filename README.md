@@ -33,7 +33,7 @@ ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga 
 
 ## Estado
 
-En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, administración de dispositivos y usuarios, recepción de mediciones (`POST /measurements`), CI y despliegue automático (API en AWS y frontend en GitHub Pages con dominio propio). En curso: correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
+En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, alta de usuarios por invitación con contraseña provisional por correo y recuperación de contraseña, portada pública, códigos automáticos de pacientes y dispositivos, administración de dispositivos y usuarios, recepción de mediciones (`POST /measurements`), CI y despliegue automático (API en AWS y frontend en GitHub Pages con dominio propio). En curso: correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
 
 ## Despliegue
 
@@ -108,7 +108,9 @@ npm install        # solo la primera vez
 npm run dev
 ```
 
-Abre <http://localhost:5173> e inicia sesión con alguno de los usuarios creados.
+Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresar* lleva al login. Inicia sesión con alguno de los usuarios creados.
+
+**Correo en local:** sin cuenta de Gmail configurada, con `MAIL_CONSOLE=1` los correos (invitaciones y recuperación de contraseña) no se envían: se imprimen en la consola donde corre `uvicorn`, con la contraseña provisional. En AWS se usa `GMAIL_USER` y `GMAIL_APP_PASSWORD`.
 
 ### Roles
 
@@ -117,6 +119,18 @@ Abre <http://localhost:5173> e inicia sesión con alguno de los usuarios creados
 | Administrador | Gestiona dispositivos y usuarios; ve todo |
 | Promotor | Ve solo los dispositivos que tienen su correo como promotor |
 | Evaluador | Solo lectura de dispositivos; sin edición |
+
+### Cómo se agrega a una persona del equipo
+
+1. El administrador entra a *Usuarios* → *Invitar usuario*, escribe el correo y el nombre y **elige el rol**.
+2. El sistema genera una contraseña provisional aleatoria y se la envía por correo (plantilla del proyecto).
+3. La persona entra con esa contraseña; el sistema le pide crear la suya. Con ese primer ingreso queda verificado su correo (hasta entonces aparece como *Pendiente de verificar* y el administrador puede *Reenviar*).
+4. Si olvida la contraseña, en el login pulsa *¿Olvidaste tu contraseña?* y recibe otra provisional (válida 30 minutos); la de siempre sigue funcionando hasta que use la provisional.
+
+### Códigos automáticos
+
+- **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar solo el nombre es obligatorio; también se pueden guardar DUI, edad, teléfono, correo y dirección. El dispositivo solo guarda el código.
+- **Dispositivos:** el sistema asigna el identificador (`ESP32-GP03-01`, `-02`…) y genera la clave; el identificador se copia al `secrets.h` del firmware junto con la clave.
 
 ### Consultar los datos
 

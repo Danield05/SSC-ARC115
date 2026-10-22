@@ -115,11 +115,14 @@ export default function DevicesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Registrar dispositivo</DialogTitle>
-            <DialogDescription>Se generará una clave para el firmware. Solo se muestra una vez.</DialogDescription>
+            <DialogDescription>
+              El sistema asigna el identificador y genera la clave para el firmware. La clave solo se muestra
+              una vez.
+            </DialogDescription>
           </DialogHeader>
           <DeviceForm
             onCreate={async (data) => {
-              setShown({ id: data.device_id, key: await create(data) })
+              setShown(await create(data))
             }}
             onDone={() => setOpen(false)}
           />

@@ -17,6 +17,7 @@ _bearer = HTTPBearer(auto_error=False)
 class CurrentUser:
     email: str
     role: str
+    must_change_password: bool = False
 
 
 def _unauthorized(detail: str = "No autenticado") -> HTTPException:
@@ -25,9 +26,10 @@ def _unauthorized(detail: str = "No autenticado") -> HTTPException:
     )
 
 
-def get_current_user(
+def get_session_user(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer),  # noqa: B008
 ) -> CurrentUser:
+    """Usuario del token, aunque todavía deba cambiar su contraseña provisional."""
     secret = get_settings().jwt_secret
     if creds is None or not secret:
         raise _unauthorized()
@@ -39,7 +41,18 @@ def get_current_user(
     user = repository.get_user(payload.get("sub", ""))
     if user is None or not user.get("active", True):
         raise _unauthorized("Usuario inactivo o inexistente")
-    return CurrentUser(email=user["email"], role=user["role"])
+    return CurrentUser(
+        email=user["email"],
+        role=user["role"],
+        must_change_password=user.get("must_change_password", False),
+    )
+
+
+def get_current_user(user: CurrentUser = Depends(get_session_user)) -> CurrentUser:  # noqa: B008
+    """Usuario con la cuenta lista: quien usa una contraseña provisional solo puede cambiarla."""
+    if user.must_change_password:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Debes crear tu contraseña nueva primero")
+    return user
 
 
 def require_roles(*roles: str):

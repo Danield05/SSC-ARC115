@@ -1,42 +1,53 @@
-import { Plus } from 'lucide-react'
+import { MailCheck, Plus, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
-import { ROLE_LABELS } from '../../auth/types'
+import { ROLE_OPTIONS } from '../../auth/types'
+import type { Role } from '../../auth/types'
 import UserForm from '../components/UserForm'
 import { useUsers } from '../hooks/useUsers'
+import type { NewUser } from '../types'
 
 export default function UsersPage() {
   const { user: me } = useAuth()
-  const { users, loading, error, create, setActive } = useUsers()
+  const { users, loading, error, create, setActive, setRole, resend } = useUsers()
   const [actionError, setActionError] = useState('')
+  const [notice, setNotice] = useState('')
   const [open, setOpen] = useState(false)
 
-  async function toggle(email: string, active: boolean) {
+  async function run(action: () => Promise<void>, success?: string) {
     setActionError('')
+    setNotice('')
     try {
-      await setActive(email, active)
+      await action()
+      if (success) setNotice(success)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'La acción falló.')
     }
+  }
+
+  async function invite(data: NewUser) {
+    await create(data)
+    setNotice(`Invitación enviada a ${data.email}. Recibirá una contraseña provisional por correo.`)
   }
 
   return (
     <>
       <PageHeader
         title="Usuarios"
-        description="Administradores, promotores y evaluadores con acceso al sistema."
+        description="Invita a tu equipo: el sistema les envía una contraseña provisional y tú decides su rol."
         actions={
           <Button onClick={() => setOpen(true)}>
             <Plus />
-            Nuevo usuario
+            Invitar usuario
           </Button>
         }
       />
@@ -44,6 +55,12 @@ export default function UsersPage() {
       {(error || actionError) && (
         <Alert variant="destructive">
           <AlertDescription>{error || actionError}</AlertDescription>
+        </Alert>
+      )}
+      {notice && (
+        <Alert>
+          <MailCheck />
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
 
@@ -55,36 +72,83 @@ export default function UsersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Correo</TableHead>
+                  <TableHead>Persona</TableHead>
                   <TableHead>Rol</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acceso</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.email}>
-                    <TableCell>
-                      {u.email}
-                      {u.email === me?.email && <span className="text-muted-foreground ml-2 text-xs">(tú)</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{ROLE_LABELS[u.role]}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={u.active ? 'default' : 'secondary'}>{u.active ? 'Activo' : 'Desactivado'}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {u.email !== me?.email && (
-                        <Switch
-                          checked={u.active}
-                          onCheckedChange={(checked) => toggle(u.email, checked)}
-                          aria-label={`${u.active ? 'Desactivar' : 'Activar'} a ${u.email}`}
-                        />
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {users.map((u) => {
+                  const isMe = u.email === me?.email
+                  return (
+                    <TableRow key={u.email}>
+                      <TableCell>
+                        <div className="font-medium">
+                          {u.name || u.email}
+                          {isMe && <span className="text-muted-foreground ml-2 text-xs font-normal">(tú)</span>}
+                        </div>
+                        {u.name && <div className="text-muted-foreground text-xs">{u.email}</div>}
+                      </TableCell>
+                      <TableCell>
+                        {isMe ? (
+                          <Badge variant="outline">{ROLE_OPTIONS.find((r) => r.value === u.role)?.label}</Badge>
+                        ) : (
+                          <Select
+                            items={ROLE_OPTIONS}
+                            value={u.role}
+                            onValueChange={(v) => v && v !== u.role && run(() => setRole(u.email, v as Role))}
+                          >
+                            <SelectTrigger className="w-48" aria-label={`Rol de ${u.email}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ROLE_OPTIONS.map((item) => (
+                                <SelectItem key={item.value} value={item.value}>
+                                  {item.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {!u.active ? (
+                          <Badge variant="secondary">Desactivado</Badge>
+                        ) : u.must_change_password ? (
+                          <Badge variant="outline" className="border-warning/60 text-warning-foreground">
+                            Pendiente de verificar
+                          </Badge>
+                        ) : (
+                          <Badge>Activo</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {!isMe && (
+                          <div className="flex items-center justify-end gap-3">
+                            {u.active && u.must_change_password && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  run(() => resend(u.email), `Se envió una contraseña provisional nueva a ${u.email}.`)
+                                }
+                              >
+                                <Send />
+                                Reenviar
+                              </Button>
+                            )}
+                            <Switch
+                              checked={u.active}
+                              onCheckedChange={(checked) => run(() => setActive(u.email, checked))}
+                              aria-label={`${u.active ? 'Desactivar' : 'Activar'} a ${u.email}`}
+                            />
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
@@ -94,10 +158,10 @@ export default function UsersPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Nuevo usuario</DialogTitle>
-            <DialogDescription>El usuario podrá entrar con este correo y contraseña.</DialogDescription>
+            <DialogTitle>Invitar usuario</DialogTitle>
+            <DialogDescription>Elige su rol: es lo que podrá ver y hacer dentro del sistema.</DialogDescription>
           </DialogHeader>
-          <UserForm onCreate={create} onDone={() => setOpen(false)} />
+          <UserForm onCreate={invite} onDone={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
     </>

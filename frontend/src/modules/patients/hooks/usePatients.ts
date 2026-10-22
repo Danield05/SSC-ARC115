@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import * as api from '../api/patientsApi'
-import type { NewPatient, Patient } from '../types'
+import type { NewPatient, Patient, PatientChanges } from '../types'
 
 export function usePatients() {
   const [patients, setPatients] = useState<Patient[]>([])
@@ -37,14 +37,15 @@ export function usePatients() {
   }, [])
 
   const create = async (data: NewPatient) => {
-    await api.createPatient(data)
+    const created = await api.createPatient(data)
+    await reload()
+    return created
+  }
+
+  const update = async (code: string, changes: PatientChanges) => {
+    await api.updatePatient(code, changes)
     await reload()
   }
 
-  const rename = async (code: string, name: string) => {
-    await api.renamePatient(code, name)
-    await reload()
-  }
-
-  return { patients, loading, error, create, rename }
+  return { patients, loading, error, create, update }
 }

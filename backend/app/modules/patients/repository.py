@@ -3,7 +3,7 @@
 from botocore.exceptions import ClientError
 
 from app.core.config import get_settings
-from app.core.dynamo import get_table
+from app.core.dynamo import COUNTER_KEY, get_table, next_number
 
 
 def _table():
@@ -11,7 +11,13 @@ def _table():
 
 
 def get_patient(patient_code: str) -> dict | None:
+    if patient_code == COUNTER_KEY:
+        return None
     return _table().get_item(Key={"patient_code": patient_code}).get("Item")
+
+
+def next_code_number() -> int:
+    return next_number(_table(), "patient_code")
 
 
 def create_patient(item: dict) -> bool:
@@ -32,19 +38,28 @@ def list_patients() -> list[dict]:
     while "LastEvaluatedKey" in resp:
         resp = table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
         items.extend(resp.get("Items", []))
-    return items
+    return [i for i in items if i["patient_code"] != COUNTER_KEY]
 
 
-def set_name(patient_code: str, name: str) -> dict | None:
-    """Devuelve el paciente actualizado o None si no existe."""
+def update_patient(patient_code: str, changes: dict, remove: tuple[str, ...] = ()) -> dict | None:
+    """Asigna `changes` y quita `remove`. Devuelve el paciente o None si no existe."""
+    names = {f"#{k}": k for k in (*changes, *remove)}
+    parts = []
+    if changes:
+        parts.append("SET " + ", ".join(f"#{k} = :{k}" for k in changes))
+    if remove:
+        parts.append("REMOVE " + ", ".join(f"#{k}" for k in remove))
+    kwargs = {}
+    if changes:
+        kwargs["ExpressionAttributeValues"] = {f":{k}": v for k, v in changes.items()}
     try:
         resp = _table().update_item(
             Key={"patient_code": patient_code},
-            UpdateExpression="SET #n = :n",
+            UpdateExpression=" ".join(parts),
             ConditionExpression="attribute_exists(patient_code)",
-            ExpressionAttributeNames={"#n": "name"},
-            ExpressionAttributeValues={":n": name},
+            ExpressionAttributeNames=names,
             ReturnValues="ALL_NEW",
+            **kwargs,
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":

@@ -19,12 +19,7 @@ def list_patients(user: CurrentUser = Depends(any_role)):  # noqa: B008
 
 @router.post("", response_model=PatientOut, status_code=status.HTTP_201_CREATED)
 def create_patient(body: PatientCreate, user: CurrentUser = Depends(can_write)):  # noqa: B008
-    try:
-        return service.create_patient(body.patient_code, body.name, user.email)
-    except service.PatientExistsError:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Ya existe un paciente con ese código"
-        ) from None
+    return service.create_patient(body.model_dump(), user.email)
 
 
 @router.patch("/{patient_code}", response_model=PatientOut)
@@ -34,6 +29,8 @@ def update_patient(
     user: CurrentUser = Depends(can_write),  # noqa: B008
 ):
     try:
-        return service.update_name(patient_code, body.name, user.role, user.email)
+        return service.update_patient(
+            patient_code, body.model_dump(exclude_unset=True), user.role, user.email
+        )
     except service.PatientNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
