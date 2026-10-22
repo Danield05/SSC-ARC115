@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.dynamo import get_resource
 from app.main import app
 from app.modules.auth import service as auth_service
+from app.modules.notifications import service as notifications
 
 
 def _clear_caches():
@@ -50,6 +51,18 @@ def aws(monkeypatch):
         )
         yield
     _clear_caches()
+
+
+@pytest.fixture(autouse=True)
+def outbox(monkeypatch):
+    """Ningún test envía correo de verdad: cada mensaje queda en esta lista."""
+    sent: list[dict] = []
+
+    def fake_send(to, subject, text, html):
+        sent.append({"to": to, "subject": subject, "text": text, "html": html})
+
+    monkeypatch.setattr(notifications, "send_email", fake_send)
+    return sent
 
 
 @pytest.fixture

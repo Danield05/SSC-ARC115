@@ -25,6 +25,10 @@ def create_user(item: dict) -> bool:
     return True
 
 
+def delete_user(email: str) -> None:
+    _table().delete_item(Key={"email": email})
+
+
 def list_users() -> list[dict]:
     table = _table()
     resp = table.scan()
@@ -35,15 +39,25 @@ def list_users() -> list[dict]:
     return items
 
 
-def set_active(email: str, active: bool) -> dict | None:
-    """Devuelve el usuario actualizado o None si no existe."""
+def update_user(email: str, changes: dict, remove: tuple[str, ...] = ()) -> dict | None:
+    """Asigna `changes` y quita `remove`. Devuelve el usuario o None si no existe."""
+    names = {f"#{k}": k for k in (*changes, *remove)}
+    parts = []
+    if changes:
+        parts.append("SET " + ", ".join(f"#{k} = :{k}" for k in changes))
+    if remove:
+        parts.append("REMOVE " + ", ".join(f"#{k}" for k in remove))
+    kwargs = {}
+    if changes:
+        kwargs["ExpressionAttributeValues"] = {f":{k}": v for k, v in changes.items()}
     try:
         resp = _table().update_item(
             Key={"email": email},
-            UpdateExpression="SET active = :a",
+            UpdateExpression=" ".join(parts),
             ConditionExpression="attribute_exists(email)",
-            ExpressionAttributeValues={":a": active},
+            ExpressionAttributeNames=names,
             ReturnValues="ALL_NEW",
+            **kwargs,
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
