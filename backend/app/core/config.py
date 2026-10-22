@@ -19,6 +19,7 @@ class Settings:
     temp_high_c: float
     spo2_min: int
     log_level: str
+    mail_console: bool
 
 
 @lru_cache
@@ -37,4 +38,5 @@ def get_settings() -> Settings:
         temp_high_c=float(env("TEMP_HIGH_C", "38")),
         spo2_min=int(env("SPO2_MIN", "92")),
         log_level=env("LOG_LEVEL", "INFO"),
+        mail_console=env("MAIL_CONSOLE", "") == "1",
     )
