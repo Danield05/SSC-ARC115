@@ -1,0 +1,79 @@
+# =====================================================================
+# SSC-ARC115 - dependencias para correr TODO en local
+# =====================================================================
+#
+# Uso (desde la raiz del repo, con el entorno virtual de backend activado):
+#
+#     pip install -r requirements-local.txt
+#
+# OJO: este archivo solo instala lo de PYTHON. El frontend (npm) y la base
+# de datos (Docker) no se pueden instalar desde un requirements.txt.
+# Para hacerlo todo de una vez, usa el script de la raiz:
+#
+#     .\setup-local.ps1
+#
+# Que hace: revisa las herramientas, crea backend\.venv, instala este archivo,
+# corre "npm install" en frontend, levanta la base y crea las tablas.
+# =====================================================================
+
+
+# ---------------------------------------------------------------------
+# 1. BACKEND (Python 3.12 o superior)
+# ---------------------------------------------------------------------
+# Este -r incluye backend/requirements.txt (lo que usa la API) mas las
+# herramientas de desarrollo:
+#
+#   fastapi, mangum, boto3, pyjwt .... la API y su acceso a DynamoDB
+#   uvicorn .......................... servidor local de la API
+#   pytest, httpx .................... pruebas automaticas
+#   ruff ............................. lint y formato del codigo
+#   moto[server] ..................... base DynamoDB falsa, sin Docker
+#
+-r backend/requirements-dev.txt
+
+
+# ---------------------------------------------------------------------
+# 2. FRONTEND (Node.js 22) - NO va en este archivo
+# ---------------------------------------------------------------------
+# Lo instala npm, a partir de frontend/package.json:
+#
+#     cd frontend
+#     npm install
+#
+# Trae: React, Vite, TypeScript, Tailwind CSS 4, componentes shadcn/ui
+# (base-ui), Recharts (graficas) y oxlint (lint).
+
+
+# ---------------------------------------------------------------------
+# 3. BASE DE DATOS LOCAL (DynamoDB) - NO va en este archivo
+# ---------------------------------------------------------------------
+# Opcion A (recomendada): Docker Desktop. Los datos persisten.
+#
+#     docker compose up -d                  (desde la raiz del repo)
+#
+# Opcion B (sin Docker): base falsa de moto, ya instalada arriba.
+# Los datos se pierden al cerrarla. Desde backend\ con el entorno activo:
+#
+#     moto_server -p 8001
+#
+# Con cualquiera de las dos, la base queda en http://localhost:8001 y hay
+# que crear las tablas una vez:
+#
+#     python scripts/create_tables.py
+#
+# (Desde backend\ con el entorno activo. Es repetible: omite lo que ya existe.
+# Tambien crea un dispositivo de prueba con la clave "dev-key-local".)
+
+
+# ---------------------------------------------------------------------
+# 4. HERRAMIENTAS QUE HAY QUE TENER INSTALADAS APARTE
+# ---------------------------------------------------------------------
+#   - Python 3.12 o superior   https://www.python.org/downloads/
+#   - Node.js 22               https://nodejs.org/
+#   - Git                      https://git-scm.com/
+#   - Docker Desktop           https://www.docker.com/products/docker-desktop/
+#                              (opcional si usas la opcion B de moto)
+#
+# NO hacen falta para correr en local (solo para desplegar a AWS):
+#   AWS CLI y AWS SAM CLI. El despliegue lo hace GitHub Actions al hacer
+#   push a la rama main.

@@ -7,6 +7,7 @@ from mangum import Mangum
 from app.core.config import get_settings
 from app.modules.auth.router import router as auth_router
 from app.modules.devices.router import router as devices_router
+from app.modules.measurements.router import history_router
 from app.modules.measurements.router import router as measurements_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.patients.router import router as patients_router
@@ -22,7 +23,14 @@ app.add_middleware(
     allow_headers=["authorization", "content-type", "x-api-key"],
 )
 
-for r in (auth_router, devices_router, patients_router, measurements_router, notifications_router):
+for r in (
+    auth_router,
+    devices_router,
+    patients_router,
+    history_router,
+    measurements_router,
+    notifications_router,
+):
     app.include_router(r)
 
 

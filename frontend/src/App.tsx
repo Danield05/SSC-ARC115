@@ -8,6 +8,7 @@ import ForgotPasswordPage from './modules/auth/pages/ForgotPasswordPage'
 import LoginPage from './modules/auth/pages/LoginPage'
 import DashboardPage from './modules/dashboard/pages/DashboardPage'
 import LandingPage from './modules/landing/pages/LandingPage'
+import PatientHistoryPage from './modules/measurements/pages/PatientHistoryPage'
 import PatientsPage from './modules/patients/pages/PatientsPage'
 import Layout from './shared/components/Layout'
 
@@ -29,6 +30,7 @@ export default function App() {
           >
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="patients" element={<PatientsPage />} />
+            <Route path="patients/:code" element={<PatientHistoryPage />} />
             <Route
               path="admin/devices"
               element={

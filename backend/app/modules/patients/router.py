@@ -17,6 +17,14 @@ def list_patients(user: CurrentUser = Depends(any_role)):  # noqa: B008
     return service.list_patients(user.role, user.email)
 
 
+@router.get("/{patient_code}", response_model=PatientOut)
+def get_patient(patient_code: str, user: CurrentUser = Depends(any_role)):  # noqa: B008
+    try:
+        return service.get_patient(patient_code, user.role, user.email)
+    except service.PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+
+
 @router.post("", response_model=PatientOut, status_code=status.HTTP_201_CREATED)
 def create_patient(body: PatientCreate, user: CurrentUser = Depends(can_write)):  # noqa: B008
     return service.create_patient(body.model_dump(), user.email)

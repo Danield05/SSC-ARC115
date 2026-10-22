@@ -1,7 +1,8 @@
 import { CircleCheck, LineChart, Pencil, Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -72,7 +73,7 @@ export default function PatientsPage() {
                   <TableHead>Edad</TableHead>
                   <TableHead>Teléfono</TableHead>
                   <TableHead>Última medición</TableHead>
-                  {canEdit && <TableHead className="text-right">Acciones</TableHead>}
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -83,14 +84,23 @@ export default function PatientsPage() {
                     <TableCell>{p.age ?? '—'}</TableCell>
                     <TableCell>{p.phone || '—'}</TableCell>
                     <TableCell>{formatDate(p.last_seen)}</TableCell>
-                    {canEdit && (
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => setDialog({ editing: p })}>
-                          <Pencil />
-                          Editar
-                        </Button>
-                      </TableCell>
-                    )}
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          to={`/patients/${encodeURIComponent(p.patient_code)}`}
+                          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                        >
+                          <LineChart />
+                          Historial
+                        </Link>
+                        {canEdit && (
+                          <Button variant="outline" size="sm" onClick={() => setDialog({ editing: p })}>
+                            <Pencil />
+                            Editar
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
