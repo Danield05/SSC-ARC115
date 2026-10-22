@@ -6,7 +6,7 @@ import SiteFooter from './SiteFooter'
 import ThemeToggle from './ThemeToggle'
 
 const TITLES: Record<string, string> = {
-  '/': 'Resumen',
+  '/dashboard': 'Resumen',
   '/patients': 'Pacientes',
   '/admin/devices': 'Dispositivos',
   '/admin/users': 'Usuarios',

@@ -3,8 +3,11 @@ import DevicesPage from './modules/admin/pages/DevicesPage'
 import UsersPage from './modules/admin/pages/UsersPage'
 import AuthProvider from './modules/auth/components/AuthProvider'
 import ProtectedRoute from './modules/auth/components/ProtectedRoute'
+import ChangePasswordPage from './modules/auth/pages/ChangePasswordPage'
+import ForgotPasswordPage from './modules/auth/pages/ForgotPasswordPage'
 import LoginPage from './modules/auth/pages/LoginPage'
 import DashboardPage from './modules/dashboard/pages/DashboardPage'
+import LandingPage from './modules/landing/pages/LandingPage'
 import PatientsPage from './modules/patients/pages/PatientsPage'
 import Layout from './shared/components/Layout'
 
@@ -13,7 +16,10 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route
             element={
               <ProtectedRoute>
@@ -21,7 +27,7 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<DashboardPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
             <Route path="patients" element={<PatientsPage />} />
             <Route
               path="admin/devices"

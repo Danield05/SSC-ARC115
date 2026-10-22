@@ -1,4 +1,4 @@
-import { Cpu, HeartPulse, LayoutDashboard, LogOut, UserCog, UsersRound } from 'lucide-react'
+import { Cpu, HeartPulse, KeyRound, LayoutDashboard, LogOut, UserCog, UsersRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -39,7 +39,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'Principal',
     items: [
-      { title: 'Resumen', url: '/', icon: LayoutDashboard, roles: ALL },
+      { title: 'Resumen', url: '/dashboard', icon: LayoutDashboard, roles: ALL },
       { title: 'Pacientes', url: '/patients', icon: UsersRound, roles: ALL },
     ],
   },
@@ -85,6 +85,10 @@ function UserMenu() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <DropdownMenuItem className="cursor-pointer" render={<Link to="/change-password" />}>
+                <KeyRound />
+                Cambiar contraseña
+              </DropdownMenuItem>
               <DropdownMenuItem className="cursor-pointer" onClick={logout}>
                 <LogOut />
                 Cerrar sesión
@@ -107,7 +111,7 @@ export default function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/" />}>
+            <SidebarMenuButton size="lg" render={<Link to="/dashboard" />}>
               <div className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg">
                 <HeartPulse className="size-5" />
               </div>
