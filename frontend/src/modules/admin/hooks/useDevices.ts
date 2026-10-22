@@ -39,7 +39,7 @@ export function useDevices() {
   const create = async (data: NewDevice) => {
     const created = await api.createDevice(data)
     await reload()
-    return created.api_key
+    return { id: created.device_id, key: created.api_key }
   }
 
   const setActive = async (id: string, active: boolean) => {

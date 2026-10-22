@@ -4,17 +4,23 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { NewPatient, Patient, PatientChanges } from '../types'
 
 interface Props {
-  /** Código del paciente que se edita; sin él, el formulario registra uno nuevo. */
-  editing?: { code: string; name: string }
-  onSubmit: (code: string, name: string) => Promise<void>
+  /** Paciente que se edita; sin él, el formulario registra uno nuevo. */
+  editing?: Patient
+  onCreate: (data: NewPatient) => Promise<void>
+  onUpdate: (code: string, changes: PatientChanges) => Promise<void>
   onDone: () => void
 }
 
-export default function PatientForm({ editing, onSubmit, onDone }: Props) {
-  const [code, setCode] = useState(editing?.code ?? '')
+export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Props) {
   const [name, setName] = useState(editing?.name ?? '')
+  const [dui, setDui] = useState(editing?.dui ?? '')
+  const [age, setAge] = useState(editing?.age != null ? String(editing.age) : '')
+  const [phone, setPhone] = useState(editing?.phone ?? '')
+  const [email, setEmail] = useState(editing?.email ?? '')
+  const [address, setAddress] = useState(editing?.address ?? '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -22,8 +28,27 @@ export default function PatientForm({ editing, onSubmit, onDone }: Props) {
     e.preventDefault()
     setBusy(true)
     setError('')
+    const parsedAge = age.trim() === '' ? null : Number(age)
     try {
-      await onSubmit(code.trim(), name.trim())
+      if (editing) {
+        await onUpdate(editing.patient_code, {
+          name: name.trim(),
+          dui: dui.trim(),
+          age: parsedAge,
+          email: email.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+        })
+      } else {
+        await onCreate({
+          name: name.trim(),
+          ...(dui.trim() && { dui: dui.trim() }),
+          ...(parsedAge !== null && { age: parsedAge }),
+          ...(email.trim() && { email: email.trim() }),
+          ...(phone.trim() && { phone: phone.trim() }),
+          ...(address.trim() && { address: address.trim() }),
+        })
+      }
       onDone()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar el paciente.')
@@ -34,22 +59,80 @@ export default function PatientForm({ editing, onSubmit, onDone }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="patient-code">Código</Label>
-        <Input
-          id="patient-code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          placeholder="P-0001"
-          pattern="[A-Za-z0-9\-]{1,32}"
-          title="Letras, números y guiones (máximo 32)"
-          disabled={!!editing}
-          required
-        />
+      <div className="bg-muted/60 rounded-lg px-3 py-2 text-sm">
+        <span className="text-muted-foreground">Código: </span>
+        {editing ? (
+          <span className="font-mono font-medium">{editing.patient_code}</span>
+        ) : (
+          <span className="text-muted-foreground">se asigna solo al guardar (P-0001, P-0002…)</span>
+        )}
       </div>
       <div className="space-y-2">
-        <Label htmlFor="patient-name">Nombre</Label>
-        <Input id="patient-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} required />
+        <Label htmlFor="patient-name">Nombre completo</Label>
+        <Input
+          id="patient-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          required
+          autoFocus
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="patient-dui">DUI</Label>
+          <Input
+            id="patient-dui"
+            value={dui}
+            onChange={(e) => setDui(e.target.value)}
+            placeholder="01234567-8"
+            pattern="\d{8}-\d"
+            title="Ocho dígitos, guion y el dígito verificador (01234567-8)"
+            inputMode="numeric"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="patient-age">Edad</Label>
+          <Input
+            id="patient-age"
+            type="number"
+            min={0}
+            max={120}
+            value={age}
+            onChange={(e) => setAge(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="patient-phone">Teléfono</Label>
+          <Input
+            id="patient-phone"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="7000-1234"
+            pattern="[0-9+\-\s()]{7,20}"
+            title="Entre 7 y 20 caracteres: números, espacios, guiones, + o paréntesis"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="patient-email">Correo electrónico</Label>
+          <Input
+            id="patient-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={254}
+          />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="patient-address">Dirección de residencia</Label>
+        <Input
+          id="patient-address"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          maxLength={200}
+        />
       </div>
       {error && (
         <Alert variant="destructive">

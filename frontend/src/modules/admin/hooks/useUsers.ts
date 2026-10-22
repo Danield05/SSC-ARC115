@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { User } from '../../auth/types'
+import type { Role, User } from '../../auth/types'
 import * as api from '../api/adminApi'
 import type { NewUser } from '../types'
 
@@ -43,9 +43,18 @@ export function useUsers() {
   }
 
   const setActive = async (email: string, active: boolean) => {
-    await api.setUserActive(email, active)
+    await api.updateUser(email, { active })
     await reload()
   }
 
-  return { users, loading, error, create, setActive }
+  const setRole = async (email: string, role: Role) => {
+    await api.updateUser(email, { role })
+    await reload()
+  }
+
+  const resend = async (email: string) => {
+    await api.resendInvite(email)
+  }
+
+  return { users, loading, error, create, setActive, setRole, resend }
 }

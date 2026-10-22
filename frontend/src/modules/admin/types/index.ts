@@ -13,13 +13,12 @@ export interface DeviceCreated extends Device {
 }
 
 export interface NewDevice {
-  device_id: string
   name: string
   promoter_email: string
 }
 
 export interface NewUser {
   email: string
-  password: string
+  name: string
   role: Role
 }
