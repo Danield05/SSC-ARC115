@@ -24,3 +24,28 @@ class MeasurementBatch(BaseModel):
 class BatchResult(BaseModel):
     saved: list[str]
     duplicates: list[str]
+
+
+class MeasurementOut(BaseModel):
+    record_id: str
+    device_id: str
+    ts: str
+    weight_kg: float
+    temp_c: float
+    spo2: int
+    bpm: int
+    alert: bool
+
+
+class Thresholds(BaseModel):
+    """Umbrales de alerta vigentes (los mismos que usa el servidor), para dibujarlos."""
+
+    temp_low_c: float
+    temp_high_c: float
+    spo2_min: int
+
+
+class HistoryOut(BaseModel):
+    patient_code: str
+    thresholds: Thresholds
+    items: list[MeasurementOut]

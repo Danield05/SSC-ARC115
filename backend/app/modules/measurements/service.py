@@ -9,6 +9,7 @@ from app.modules.devices import repository as devices_repository
 from app.modules.measurements import repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
 from app.modules.patients import repository as patients_repository
+from app.modules.patients import service as patients_service
 
 
 class InvalidDeviceKeyError(Exception):
@@ -72,3 +73,37 @@ def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, l
         else:
             duplicates.append(record.record_id)
     return BatchResult(saved=saved, duplicates=duplicates), new_items
+
+
+MAX_HISTORY = 1000
+_FIRST_TS = "0000-01-01T00:00:00Z"
+_LAST_TS = "9999-12-31T23:59:59Z"
+
+
+class InvalidRangeError(Exception):
+    """`from` es posterior a `to`."""
+
+
+def history(
+    patient_code: str,
+    start: datetime | None,
+    end: datetime | None,
+    role: str,
+    email: str,
+) -> dict:
+    """Mediciones de un paciente en un rango. Lanza PatientNotFoundError si el rol no lo ve."""
+    patients_service.get_patient(patient_code, role, email)
+    start_ts = _iso_utc(start) if start else _FIRST_TS
+    end_ts = _iso_utc(end) if end else _LAST_TS
+    if start_ts > end_ts:
+        raise InvalidRangeError(patient_code)
+    s = get_settings()
+    return {
+        "patient_code": patient_code,
+        "thresholds": {
+            "temp_low_c": s.temp_low_c,
+            "temp_high_c": s.temp_high_c,
+            "spo2_min": s.spo2_min,
+        },
+        "items": repository.list_measurements(patient_code, start_ts, end_ts, MAX_HISTORY),
+    }
