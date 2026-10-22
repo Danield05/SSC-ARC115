@@ -84,6 +84,7 @@ pip install -r requirements-dev.txt
 python scripts/create_tables.py                              # crea las 4 tablas y un dispositivo de prueba
 python scripts/create_admin.py --local admin@example.com     # primer administrador (pide la contraseña)
 python scripts/seed_demo_users.py --local                    # opcional: promotor y evaluador de ejemplo (pide una contraseña)
+python scripts/seed_demo_measurements.py --local             # opcional: paciente de ejemplo con 30 días de mediciones (para ver las gráficas)
 ```
 
 Las contraseñas se piden por teclado y nunca se guardan en archivos. Los scripts son repetibles: si algo ya existe, lo omiten.
@@ -126,6 +127,10 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 2. El sistema genera una contraseña provisional aleatoria y se la envía por correo (plantilla del proyecto).
 3. La persona entra con esa contraseña; el sistema le pide crear la suya. Con ese primer ingreso queda verificado su correo (hasta entonces aparece como *Pendiente de verificar* y el administrador puede *Reenviar*).
 4. Si olvida la contraseña, en el login pulsa *¿Olvidaste tu contraseña?* y recibe otra provisional (válida 30 minutos); la de siempre sigue funcionando hasta que use la provisional.
+
+### Historial y gráficas
+
+En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro de 7, 30 o 90 días (o todo), la última medición de cada parámetro, una gráfica por parámetro (temperatura y SpO₂ con su rango normal sombreado; los valores fuera de rango van en rojo) y una tabla con todas las mediciones. El promotor solo ve a sus propios pacientes.
 
 ### Códigos automáticos
 
