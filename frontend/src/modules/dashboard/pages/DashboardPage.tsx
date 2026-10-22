@@ -1,42 +1,18 @@
 import { Activity, BellRing, Cpu, Scale, Thermometer, UserCog, UsersRound } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
 import { useDevices } from '@/modules/admin/hooks/useDevices'
 import { useUsers } from '@/modules/admin/hooks/useUsers'
 import { useAuth } from '@/modules/auth/hooks/useAuth'
 import { ROLE_LABELS } from '@/modules/auth/types'
 import { assetUrl } from '@/lib/utils'
 import PageHeader from '@/shared/components/PageHeader'
-
-interface StatProps {
-  title: string
-  value: string
-  hint: string
-  icon: LucideIcon
-}
-
-function Stat({ title, value, hint, icon: Icon }: StatProps) {
-  return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardDescription>{title}</CardDescription>
-        <div className="bg-accent text-accent-foreground flex size-8 items-center justify-center rounded-lg">
-          <Icon className="size-4" />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-3xl font-semibold tracking-tight">{value}</p>
-        <p className="text-muted-foreground mt-1 text-xs">{hint}</p>
-      </CardContent>
-    </Card>
-  )
-}
+import StatCard from '@/shared/components/StatCard'
 
 function UsersStat() {
   const { users, loading } = useUsers()
   const active = users.filter((u) => u.active).length
   return (
-    <Stat
+    <StatCard
       title="Usuarios activos"
       value={loading ? '…' : String(active)}
       hint={`${users.length} registrados en total`}
@@ -59,15 +35,15 @@ export default function DashboardPage() {
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat
+        <StatCard
           title="Dispositivos activos"
           value={loading ? '…' : String(active)}
           hint={`${devices.length} registrados`}
           icon={Cpu}
         />
         {user.role === 'admin' && <UsersStat />}
-        <Stat title="Pacientes" value="—" hint="Aparecerán con la primera sincronización" icon={UsersRound} />
-        <Stat title="Alertas" value="—" hint="Sin mediciones todavía" icon={BellRing} />
+        <StatCard title="Pacientes" value="—" hint="Aparecerán con la primera sincronización" icon={UsersRound} />
+        <StatCard title="Alertas" value="—" hint="Sin mediciones todavía" icon={BellRing} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

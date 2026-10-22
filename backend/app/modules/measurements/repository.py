@@ -1,5 +1,6 @@
 """Acceso a la tabla measurements de DynamoDB."""
 
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
 from app.core.config import get_settings
@@ -22,3 +23,22 @@ def put_measurement(item: dict) -> bool:
             return False
         raise
     return True
+
+
+def list_measurements(patient_code: str, start: str, end: str, limit: int) -> list[dict]:
+    """Las `limit` mediciones más recientes del paciente entre `start` y `end`, de la más
+    antigua a la más nueva."""
+    table = _table()
+    kwargs = {
+        "KeyConditionExpression": Key("patient_code").eq(patient_code)
+        & Key("ts").between(start, end),
+        "ScanIndexForward": False,
+        "Limit": limit,
+    }
+    items: list[dict] = []
+    resp = table.query(**kwargs)
+    items.extend(resp.get("Items", []))
+    while "LastEvaluatedKey" in resp and len(items) < limit:
+        resp = table.query(ExclusiveStartKey=resp["LastEvaluatedKey"], **kwargs)
+        items.extend(resp.get("Items", []))
+    return list(reversed(items[:limit]))

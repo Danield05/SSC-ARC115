@@ -51,6 +51,15 @@ def list_patients(role: str, email: str) -> list[dict]:
     return sorted((to_public(p) for p in patients), key=lambda p: p["patient_code"])
 
 
+def get_patient(patient_code: str, role: str, email: str) -> dict:
+    """Un paciente, solo si el rol puede verlo (si no, se comporta como si no existiera)."""
+    patient = repository.get_patient(patient_code)
+    my_devices = _my_device_ids(email) if role == "promoter" else set()
+    if patient is None or not _visible(patient, role, email, my_devices):
+        raise PatientNotFoundError(patient_code)
+    return to_public(patient)
+
+
 def create_patient(data: dict, email: str) -> dict:
     """Registra al paciente con un código asignado por el sistema (P-0001, P-0002…).
 
