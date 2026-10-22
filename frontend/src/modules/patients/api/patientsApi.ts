@@ -3,6 +3,8 @@ import type { NewPatient, Patient, PatientChanges } from '../types'
 
 export const listPatients = () => apiFetch<Patient[]>('/patients')
 
+export const getPatient = (code: string) => apiFetch<Patient>(`/patients/${encodeURIComponent(code)}`)
+
 export const createPatient = (data: NewPatient) =>
   apiFetch<Patient>('/patients', { method: 'POST', ...jsonBody(data) })
 
