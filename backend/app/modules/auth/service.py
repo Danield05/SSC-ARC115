@@ -2,6 +2,7 @@
 
 import logging
 import secrets
+import string
 from datetime import UTC, datetime, timedelta
 
 from app.core.config import get_settings
@@ -20,8 +21,9 @@ ROLE_LABELS = {
 
 RESET_MINUTES = 30
 RESET_COOLDOWN_SECONDS = 60
-# Sin caracteres que se confunden al leer o copiar (0/O, 1/l/I).
-_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"  # noqa: S105
+# Letras y números sin los que se confunden al leer o copiar (0/O, 1/l/I).
+_AMBIGUOUS = "0O1lI"
+_CHARS = "".join(c for c in string.ascii_letters + string.digits if c not in _AMBIGUOUS)
 
 
 class UserExistsError(Exception):
@@ -61,7 +63,7 @@ def _iso(moment: datetime) -> str:
 
 
 def generate_temp_password(length: int = 12) -> str:
-    return "".join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(length))
+    return "".join(secrets.choice(_CHARS) for _ in range(length))
 
 
 def to_public(user: dict) -> dict:

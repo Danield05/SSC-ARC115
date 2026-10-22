@@ -1,5 +1,10 @@
+import secrets
+
 from app.modules.auth import repository as auth_repository
 from app.modules.notifications import service as notifications
+
+# Contraseña generada en cada corrida: no hay credenciales escritas en el código.
+NEW_PASSWORD = f"Np-{secrets.token_urlsafe(9)}"
 
 
 def test_login_ok_and_me(client, make_user):
@@ -111,20 +116,20 @@ def test_temporary_password_forces_a_change_before_anything_else(client, admin, 
     assert client.get("/patients", headers=headers).status_code == 403
     assert client.get("/devices", headers=headers).status_code == 403
 
-    wrong = {"current_password": "incorrecta", "new_password": "Clave-nueva-123"}
+    wrong = {"current_password": "incorrecta", "new_password": NEW_PASSWORD}
     assert client.post("/auth/change-password", json=wrong, headers=headers).status_code == 400
     same = {"current_password": temp, "new_password": temp}
     assert client.post("/auth/change-password", json=same, headers=headers).status_code == 400
     short = {"current_password": temp, "new_password": "corta"}
     assert client.post("/auth/change-password", json=short, headers=headers).status_code == 422
 
-    ok = {"current_password": temp, "new_password": "Clave-nueva-123"}
+    ok = {"current_password": temp, "new_password": NEW_PASSWORD}
     r = client.post("/auth/change-password", json=ok, headers=headers)
     assert r.status_code == 200
     assert r.json()["must_change_password"] is False
     assert client.get("/patients", headers=headers).status_code == 200
     assert _login(client, "nuevo@example.com", temp).status_code == 401
-    assert _login(client, "nuevo@example.com", "Clave-nueva-123").status_code == 200
+    assert _login(client, "nuevo@example.com", NEW_PASSWORD).status_code == 200
 
 
 def test_resend_invite_replaces_the_password_until_the_account_is_active(client, admin, outbox):
@@ -135,7 +140,7 @@ def test_resend_invite_replaces_the_password_until_the_account_is_active(client,
     assert second != first
     assert _login(client, "nuevo@example.com", first).status_code == 401
     headers = _headers(client, "nuevo@example.com", second)
-    body = {"current_password": second, "new_password": "Clave-nueva-123"}
+    body = {"current_password": second, "new_password": NEW_PASSWORD}
     assert client.post("/auth/change-password", json=body, headers=headers).status_code == 200
     again = client.post("/users/nuevo@example.com/resend-invite", headers=admin)
     assert again.status_code == 409
@@ -166,12 +171,12 @@ def test_forgot_password_flow_keeps_the_old_password_until_the_new_one_is_set(
     assert login.json()["user"]["must_change_password"] is True
     headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
     assert client.get("/patients", headers=headers).status_code == 403
-    body = {"current_password": temp, "new_password": "Clave-nueva-123"}
+    body = {"current_password": temp, "new_password": NEW_PASSWORD}
     assert client.post("/auth/change-password", json=body, headers=headers).status_code == 200
     assert client.get("/patients", headers=headers).status_code == 200
     assert _login(client, "promo@example.com", old).status_code == 401
     assert _login(client, "promo@example.com", temp).status_code == 401
-    assert _login(client, "promo@example.com", "Clave-nueva-123").status_code == 200
+    assert _login(client, "promo@example.com", NEW_PASSWORD).status_code == 200
 
 
 def test_forgot_password_has_a_cooldown(client, make_user, outbox):
