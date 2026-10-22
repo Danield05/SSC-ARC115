@@ -39,12 +39,20 @@ Obtenidas de Wikimedia Commons; la licencia de cada archivo se verificó en su p
 
 | Archivo | Obra | Autoría | Licencia |
 |---|---|---|---|
-| `promotoras-salud.jpg` | [Community Health Workers](https://commons.wikimedia.org/wiki/File:Community_Health_Workers_(5762479865).jpg) | USAID Africa Bureau | Dominio público |
 | `oximetro.jpg` | [Pulox Pulse Oximeter](https://commons.wikimedia.org/wiki/File:Pulox_Pulse_Oximeter.JPG) | Stefan Bellini | CC0 |
 
-Ambas imágenes se redimensionaron y comprimieron. La licencia cubre los derechos de autor, no el derecho a la
+La foto `oximetro.jpg` se redimensionó y comprimió. La licencia cubre los derechos de autor, no el derecho a la
 propia imagen de las personas que aparecen en la foto: si el proyecto se publica fuera del ámbito académico,
 conviene sustituirla por una foto propia del equipo con autorización de quienes salgan.
+
+### Fotografías aportadas por el equipo (portada y login)
+
+`visita-domiciliaria.jpg`, `visita-rural.jpg`, `educacion-salud.jpg`, `registro-movil.jpg`,
+`promotores-sonriendo.jpg` y `equipo-en-campo.jpg` son fotos de promotores de salud de El Salvador, de
+difusión pública, que el equipo reunió en la carpeta `Imagenes proyecto` (originales `img1` a `img6`).
+Se usan únicamente en este proyecto académico (ARC115, Universidad de El Salvador en Línea), sin fines de lucro.
+No se registró la URL exacta de cada foto ni una licencia explícita; si el sitio se publica fuera del ámbito
+académico, conviene anotar aquí la fuente de cada una o sustituirlas por fotos propias del equipo.
 
 ## Dependencias
 

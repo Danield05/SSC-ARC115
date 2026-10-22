@@ -29,12 +29,7 @@ def list_devices(user: CurrentUser = Depends(any_role)):  # noqa: B008
 
 @router.post("", response_model=DeviceCreated, status_code=status.HTTP_201_CREATED)
 def create_device(body: DeviceCreate, _: CurrentUser = Depends(admin_only)):  # noqa: B008
-    try:
-        device, api_key = service.create_device(body.device_id, body.name, body.promoter_email)
-    except service.DeviceExistsError:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Ya existe un dispositivo con ese identificador"
-        ) from None
+    device, api_key = service.create_device(body.name, body.promoter_email)
     return {**device, "api_key": api_key}
 
 

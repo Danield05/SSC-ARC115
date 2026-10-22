@@ -1,5 +1,5 @@
 import { apiFetch, jsonBody } from '../../../shared/api/client'
-import type { User } from '../../auth/types'
+import type { Role, User } from '../../auth/types'
 import type { Device, DeviceCreated, NewDevice, NewUser } from '../types'
 
 export const listDevices = () => apiFetch<Device[]>('/devices')
@@ -20,5 +20,8 @@ export const listUsers = () => apiFetch<User[]>('/users')
 export const createUser = (data: NewUser) =>
   apiFetch<User>('/users', { method: 'POST', ...jsonBody(data) })
 
-export const setUserActive = (email: string, active: boolean) =>
-  apiFetch<User>(`/users/${encodeURIComponent(email)}`, { method: 'PATCH', ...jsonBody({ active }) })
+export const updateUser = (email: string, changes: { active?: boolean; role?: Role }) =>
+  apiFetch<User>(`/users/${encodeURIComponent(email)}`, { method: 'PATCH', ...jsonBody(changes) })
+
+export const resendInvite = (email: string) =>
+  apiFetch<User>(`/users/${encodeURIComponent(email)}/resend-invite`, { method: 'POST' })

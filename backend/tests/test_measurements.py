@@ -9,7 +9,7 @@ PATIENT = "P-0042"
 def device(client, admin):
     r = client.post(
         "/devices",
-        json={"device_id": "ESP32-GP03-01", "name": "Uno", "promoter_email": "promo@example.com"},
+        json={"name": "Uno", "promoter_email": "promo@example.com"},
         headers=admin,
     )
     return {"x-api-key": r.json()["api_key"]}

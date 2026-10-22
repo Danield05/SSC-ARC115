@@ -3,7 +3,7 @@
 from botocore.exceptions import ClientError
 
 from app.core.config import get_settings
-from app.core.dynamo import get_table
+from app.core.dynamo import COUNTER_KEY, get_table, next_number
 
 
 def _table():
@@ -11,7 +11,13 @@ def _table():
 
 
 def get_device(device_id: str) -> dict | None:
+    if device_id == COUNTER_KEY:
+        return None
     return _table().get_item(Key={"device_id": device_id}).get("Item")
+
+
+def next_id_number() -> int:
+    return next_number(_table(), "device_id")
 
 
 def create_device(item: dict) -> bool:
@@ -32,7 +38,7 @@ def list_devices() -> list[dict]:
     while "LastEvaluatedKey" in resp:
         resp = table.scan(ExclusiveStartKey=resp["LastEvaluatedKey"])
         items.extend(resp.get("Items", []))
-    return items
+    return [i for i in items if i["device_id"] != COUNTER_KEY]
 
 
 def update_device(device_id: str, changes: dict) -> dict | None:
