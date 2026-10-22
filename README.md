@@ -66,6 +66,14 @@ Las variables del backend y del frontend, con valores de ejemplo, están en [`.e
 
 Requisitos: Docker Desktop, Python 3.12 o superior y Node.js 22.
 
+**Atajo:** el script `setup-local.ps1` hace los pasos de instalación de una vez (revisa las herramientas, instala Python y npm, levanta la base y crea las tablas) y al final imprime los comandos para crear el administrador y arrancar la API y el frontend:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup-local.ps1
+```
+
+Sin Docker, `setup-local.ps1` indica cómo usar `moto_server`. El archivo `requirements-local.txt` (con comentarios) instala solo lo de Python: `pip install -r requirements-local.txt`. Si prefieres hacerlo a mano, los pasos siguen abajo.
+
 ### 1. Base de datos (DynamoDB Local en Docker)
 
 ```powershell
