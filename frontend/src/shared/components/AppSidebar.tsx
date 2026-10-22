@@ -135,7 +135,7 @@ export default function AppSidebar() {
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton
                       tooltip={item.title}
-                      isActive={pathname === item.url}
+                      isActive={pathname === item.url || pathname.startsWith(`${item.url}/`)}
                       render={<Link to={item.url} />}
                     >
                       <item.icon />
