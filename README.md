@@ -1,4 +1,4 @@
-# SSC-ARC115 · Dispositivo de monitoreo de salud comunitario
+# 🩺 SSC-ARC115 · Dispositivo de monitoreo de salud comunitario
 
 Proyecto de ARC115 (Arquitectura de Computadoras), Universidad de El Salvador en Línea, ciclo II-2026, grupo GP03. Tutor: Mg. Luis Kelman Belloso Huezo.
 
@@ -6,7 +6,7 @@ Prototipo que mide **temperatura corporal, oximetría y pulso, y peso**, guarda 
 
 > El sistema registra y da seguimiento. No emite diagnósticos médicos.
 
-## Cómo funciona
+## ⚙️ Cómo funciona
 
 ```
 ESP32 (sensores) → microSD (cola local) → HTTPS + JSON → API Gateway + Lambda → DynamoDB
@@ -16,7 +16,7 @@ Frontend web ── consulta ──► la misma API (historial y gráficas por p
 
 El dispositivo trabaja sin internet: guarda todo en la microSD y sincroniza el lote pendiente cuando vuelve el Wi-Fi, sin duplicar registros.
 
-## Estructura del repositorio
+## 🗂️ Estructura del repositorio
 
 | Carpeta | Contenido |
 |---|---|
@@ -27,15 +27,15 @@ El dispositivo trabaja sin internet: guarda todo en la microSD y sincroniza el l
 
 Cada módulo del backend y del frontend se organiza por funcionalidad (dispositivos, pacientes, mediciones, notificaciones, autenticación).
 
-## Tecnologías
+## 🧰 Tecnologías
 
 ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · microSD · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
 
-## Estado
+## 📊 Estado
 
 En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, alta de usuarios por invitación con contraseña provisional por correo y recuperación de contraseña, portada pública, códigos automáticos de pacientes y dispositivos, administración de dispositivos y usuarios, recepción de mediciones (`POST /measurements`), CI y despliegue automático (API en AWS y frontend en GitHub Pages con dominio propio). En curso: correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
 
-## Despliegue
+## ☁️ Despliegue
 
 El sistema ya está publicado:
 
@@ -52,7 +52,7 @@ El stack de AWS es único (hace de pruebas y de producción) y se elimina al ter
 
 Para recibir mediciones, cada dispositivo se da de alta desde la página de administración; su clave `x-api-key` se muestra una sola vez.
 
-## Configuración y secretos
+## 🔐 Configuración y secretos
 
 Este repositorio **no contiene secretos**. Las claves, contraseñas y direcciones se leen de variables de entorno:
 - Backend: variables de la función Lambda (se definen en el despliegue).
@@ -62,7 +62,7 @@ Este repositorio **no contiene secretos**. Las claves, contraseñas y direccione
 
 Las variables del backend y del frontend, con valores de ejemplo, están en [`.env.example`](.env.example).
 
-## Ejecutar el proyecto en local
+## 💻 Ejecutar el proyecto en local
 
 Requisitos: Docker Desktop, Python 3.12 o superior y Node.js 22.
 
@@ -74,7 +74,7 @@ powershell -ExecutionPolicy Bypass -File .\setup-local.ps1
 
 Sin Docker, `setup-local.ps1` indica cómo usar `moto_server`. El archivo `requirements-local.txt` (con comentarios) instala solo lo de Python: `pip install -r requirements-local.txt`. Si prefieres hacerlo a mano, los pasos siguen abajo.
 
-### 1. Base de datos (DynamoDB Local en Docker)
+### 🗄️ 1. Base de datos (DynamoDB Local en Docker)
 
 ```powershell
 docker compose up -d        # raíz del repo: base en el puerto 8001
@@ -82,7 +82,7 @@ docker compose up -d        # raíz del repo: base en el puerto 8001
 
 Los datos **persisten** en un volumen de Docker: sobreviven a `docker compose down` y a reiniciar la PC. Para borrar todo y empezar de cero: `docker compose down -v`.
 
-### 2. Backend (primera vez)
+### 🐍 2. Backend (primera vez)
 
 ```powershell
 cd backend
@@ -97,7 +97,7 @@ python scripts/seed_demo_measurements.py --local             # opcional: pacient
 
 Las contraseñas se piden por teclado y nunca se guardan en archivos. Los scripts son repetibles: si algo ya existe, lo omiten.
 
-### 3. Levantar la API
+### 🚀 3. Levantar la API
 
 ```powershell
 cd backend
@@ -109,7 +109,7 @@ uvicorn app.main:app --reload
 
 API en <http://localhost:8000> y documentación interactiva en <http://localhost:8000/docs>. Sin `JWT_SECRET` el inicio de sesión responde `503`. Las variables `$env:` valen solo para esa terminal. Con un `JWT_SECRET` nuevo, las sesiones abiertas dejan de ser válidas.
 
-### 4. Levantar el frontend
+### 🖥️ 4. Levantar el frontend
 
 ```powershell
 cd frontend
@@ -121,7 +121,7 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 
 **Correo en local:** sin cuenta de Gmail configurada, con `MAIL_CONSOLE=1` los correos (invitaciones y recuperación de contraseña) no se envían: se imprimen en la consola donde corre `uvicorn`, con la contraseña provisional. En AWS se usa `GMAIL_USER` y `GMAIL_APP_PASSWORD`.
 
-### Roles
+### 👥 Roles
 
 | Rol | Qué puede hacer |
 |---|---|
@@ -129,23 +129,23 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 | Promotor | Ve solo los dispositivos que tienen su correo como promotor |
 | Evaluador | Solo lectura de dispositivos; sin edición |
 
-### Cómo se agrega a una persona del equipo
+### ✉️ Cómo se agrega a una persona del equipo
 
 1. El administrador entra a *Usuarios* → *Invitar usuario*, escribe el correo y el nombre y **elige el rol**.
 2. El sistema genera una contraseña provisional aleatoria y se la envía por correo (plantilla del proyecto).
 3. La persona entra con esa contraseña; el sistema le pide crear la suya. Con ese primer ingreso queda verificado su correo (hasta entonces aparece como *Pendiente de verificar* y el administrador puede *Reenviar*).
 4. Si olvida la contraseña, en el login pulsa *¿Olvidaste tu contraseña?* y recibe otra provisional (válida 30 minutos); la de siempre sigue funcionando hasta que use la provisional.
 
-### Historial y gráficas
+### 📈 Historial y gráficas
 
 En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro de 7, 30 o 90 días (o todo), la última medición de cada parámetro, una gráfica por parámetro (temperatura y SpO₂ con su rango normal sombreado; los valores fuera de rango van en rojo) y una tabla con todas las mediciones. El promotor solo ve a sus propios pacientes.
 
-### Códigos automáticos
+### 🔢 Códigos automáticos
 
 - **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar solo el nombre es obligatorio; también se pueden guardar DUI, edad, teléfono, correo y dirección. El dispositivo solo guarda el código.
 - **Dispositivos:** el sistema asigna el identificador (`ESP32-GP03-01`, `-02`…) y genera la clave; el identificador se copia al `secrets.h` del firmware junto con la clave.
 
-### Consultar los datos
+### 🔍 Consultar los datos
 
 - **Interfaz web (recomendada):** `dynamodb-admin`. En otra terminal:
   ```powershell
@@ -158,7 +158,7 @@ En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro
 
 DataGrip y otros clientes SQL no sirven para esto: DynamoDB no es una base SQL.
 
-### Pruebas y calidad
+### ✅ Pruebas y calidad
 
 ```powershell
 cd backend;  ruff check .; ruff format --check .; pytest      # entorno activado
@@ -167,7 +167,7 @@ cd frontend; npm run lint; npm run build
 
 Si `docker compose` falla en Windows con `docker-credential-desktop`, agrega `C:\Program Files\Docker\Docker\resources\bin` al PATH.
 
-## Flujo de trabajo con Git
+## 🌿 Flujo de trabajo con Git
 
 Las dependencias se actualizan a mano; no hay Dependabot.
 
@@ -175,11 +175,11 @@ Las dependencias se actualizan a mano; no hay Dependabot.
 - Cada cambio se hace en una rama `feature/<módulo>-<descripción>` que sale de `development` y entra a ella por pull request con el CI en verde. Cuando `development` está estable, se fusiona a `main` por pull request.
 - Commits cortos en español con el formato `tipo(módulo): descripción`, por ejemplo `feat(mediciones): validar lote del ESP32`.
 
-## Créditos y licencias
+## 📜 Créditos y licencias
 
 La interfaz adapta componentes de una plantilla con licencia MIT y usa fotos de dominio público y CC0. El detalle de autoría y licencias está en [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-## Equipo
+## 🤝 Equipo
 
 | Integrante | Carnet |
 |---|---|
