@@ -6,9 +6,8 @@ from datetime import UTC, datetime
 from app.core.security import hash_api_key
 from app.modules.devices import repository
 
-
-class DeviceExistsError(Exception):
-    pass
+ID_PREFIX = "ESP32-GP03-"
+MAX_ID_ATTEMPTS = 20
 
 
 class DeviceNotFoundError(Exception):
@@ -29,20 +28,25 @@ def _new_api_key() -> str:
     return secrets.token_urlsafe(32)
 
 
-def create_device(device_id: str, name: str, promoter_email: str) -> tuple[dict, str]:
-    """Devuelve (dispositivo, clave en claro). La clave solo existe en esta respuesta."""
+def create_device(name: str, promoter_email: str) -> tuple[dict, str]:
+    """Devuelve (dispositivo, clave en claro). La clave solo existe en esta respuesta.
+
+    El identificador lo asigna el sistema (ESP32-GP03-01, -02…). Si el número ya está tomado
+    (por ejemplo, un dispositivo creado a mano antes), se pasa al siguiente.
+    """
     api_key = _new_api_key()
-    item = {
-        "device_id": device_id,
-        "name": name,
-        "promoter_email": promoter_email,
-        "api_key_hash": hash_api_key(api_key),
-        "active": True,
-        "created_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
-    }
-    if not repository.create_device(item):
-        raise DeviceExistsError(device_id)
-    return to_public(item), api_key
+    for _ in range(MAX_ID_ATTEMPTS):
+        item = {
+            "device_id": f"{ID_PREFIX}{repository.next_id_number():02d}",
+            "name": name,
+            "promoter_email": promoter_email,
+            "api_key_hash": hash_api_key(api_key),
+            "active": True,
+            "created_at": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        }
+        if repository.create_device(item):
+            return to_public(item), api_key
+    raise RuntimeError("No se pudo asignar un identificador de dispositivo")
 
 
 def list_devices(role: str, email: str) -> list[dict]:
