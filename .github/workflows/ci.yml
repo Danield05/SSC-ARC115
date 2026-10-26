@@ -46,7 +46,7 @@ jobs:
         run: python -c "import app.main"
 
       - name: Setup SAM
-        uses: aws-actions/setup-sam@v2
+        uses: aws-actions/setup-sam@v3
 
       - name: Validar plantilla SAM
         run: sam validate --lint --region us-east-1
