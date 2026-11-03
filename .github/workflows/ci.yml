@@ -155,3 +155,47 @@ jobs:
 
       - name: Vulnerabilidades en dependencias (npm audit)
         run: npm audit --audit-level=high
+
+  # ───────────── Firmware ─────────────
+  firmware-build:
+    name: Firmware · Compilar
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # secrets.h no se sube al repositorio: para compilar se usa el de ejemplo.
+      - name: Crear secrets.h de ejemplo
+        run: cp firmware/gp03_monitor/secrets.example.h firmware/gp03_monitor/secrets.h
+
+      - name: Compilar los sketches (ESP32 Dev Module)
+        uses: arduino/compile-sketches@v1
+        with:
+          fqbn: esp32:esp32:esp32
+          platforms: |
+            - name: esp32:esp32
+              version: 3.3.12
+              source-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          sketch-paths: |
+            - firmware/gp03_monitor
+            - firmware/pruebas/i2c_scanner
+            - firmware/pruebas/hx711_calibracion
+            - firmware/pruebas/max30102_prueba
+            - firmware/pruebas/mlx90614_prueba
+            - firmware/pruebas/oled_prueba
+            - firmware/pruebas/littlefs_prueba
+          libraries: |
+            - name: ArduinoJson
+              version: 7.4.3
+            - name: HX711
+              version: 0.6.6
+            - name: SparkFun MAX3010x Pulse and Proximity Sensor Library
+              version: 1.1.2
+            - name: Adafruit MLX90614 Library
+              version: 2.1.7
+            - name: Adafruit SSD1306
+              version: 2.5.17
+            - name: Adafruit GFX Library
+              version: 1.13.0
+            - name: Adafruit BusIO
+              version: 1.17.4
