@@ -4,6 +4,7 @@ El HTML usa estilos en línea y tablas porque los clientes de correo (Gmail, Out
 casi todo el CSS externo. Cada plantilla devuelve (asunto, texto plano, html).
 """
 
+from datetime import datetime, timedelta
 from html import escape
 
 BRAND = "#0f766e"
@@ -135,3 +136,119 @@ def password_reset(
         text,
         _layout("Tu contraseña provisional (válida por tiempo limitado)", body),
     )
+
+
+MAX_LISTED = 50
+_SV_OFFSET = timedelta(hours=-6)  # El Salvador: UTC-6, sin horario de verano
+
+
+def _sv_time(ts: str) -> str:
+    """'2026-10-18T14:32:10Z' (UTC) -> '18/10/2026 08:32' (hora de El Salvador)."""
+    dt = datetime.strptime(ts, "%Y-%m-%dT%H:%M:%SZ") + _SV_OFFSET
+    return dt.strftime("%d/%m/%Y %H:%M")
+
+
+def alert_causes(item: dict, thresholds: dict) -> list[str]:
+    causes = []
+    if item["temp_c"] <= thresholds["temp_low_c"]:
+        causes.append("temperatura baja")
+    if item["temp_c"] >= thresholds["temp_high_c"]:
+        causes.append("temperatura alta")
+    if item["spo2"] < thresholds["spo2_min"]:
+        causes.append("SpO₂ baja")
+    # La bandera vino del ESP32 pero ningún umbral del servidor se cumple.
+    return causes or ["alerta del dispositivo"]
+
+
+def _alert_value(item: dict, cause: str) -> str:
+    if "temperatura" in cause:
+        return f"{item['temp_c']} °C"
+    if "SpO₂" in cause:
+        return f"{item['spo2']} %"
+    return f"{item['temp_c']} °C · SpO₂ {item['spo2']} %"
+
+
+def _alert_lines(alerts: list[dict], thresholds: dict) -> list[str]:
+    return [
+        f"{item['patient_code']} · {_sv_time(item['ts'])} · {_alert_value(item, cause)} · {cause}"
+        for item in alerts
+        for cause in alert_causes(item, thresholds)
+    ]
+
+
+def _row(cells: list[str], header: bool = False) -> str:
+    tag, weight = ("th", "700") if header else ("td", "400")
+    style = (
+        "padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:left;"
+        f"font-size:13px;font-weight:{weight};"
+    )
+    return "<tr>" + "".join(f'<{tag} style="{style}">{escape(c)}</{tag}>' for c in cells) + "</tr>"
+
+
+def _measure_cells(item: dict) -> list[str]:
+    return [
+        _sv_time(item["ts"]),
+        f"{item['weight_kg']} kg",
+        f"{item['temp_c']} °C",
+        f"{item['spo2']} %",
+        f"{item['bpm']} lpm",
+    ]
+
+
+def measurement_batch(
+    device_name: str, items: list[dict], thresholds: dict, app_url: str
+) -> tuple[str, str, str]:
+    """Correo por lote: alertas arriba y, debajo, las mediciones nuevas agrupadas por paciente.
+
+    Solo lleva el código del paciente, nunca el nombre. Con más de MAX_LISTED mediciones se
+    listan solo las alertas y un resumen por paciente.
+    """
+    items = sorted(items, key=lambda i: (i["patient_code"], i["ts"]))
+    n = len(items)
+    alerts = [i for i in items if i.get("alert")]
+    by_patient: dict[str, list[dict]] = {}
+    for item in items:
+        by_patient.setdefault(item["patient_code"], []).append(item)
+
+    if alerts:
+        subject = f"Alerta en {len(alerts)} mediciones · {device_name}"
+    else:
+        subject = f"Lote de {device_name}: {n} mediciones"
+
+    base = app_url.rstrip("/")
+    only = next(iter(by_patient)) if len(by_patient) == 1 else None
+    link = f"{base}/patients/{only}" if only else f"{base}/patients"
+    summarize = n > MAX_LISTED
+    header = ["Hora (El Salvador)", "Peso", "Temperatura", "SpO₂", "Pulso"]
+    more = f"Solo se muestran las alertas y un resumen por paciente (y {n - len(alerts)} más)."
+    alert_lines = _alert_lines(alerts, thresholds)
+
+    text_parts = [f"Dispositivo {device_name}: {n} mediciones nuevas.\n"]
+    if alert_lines:
+        text_parts.append("ALERTAS:\n" + "\n".join(f"  - {line}" for line in alert_lines) + "\n")
+    for code, rows in by_patient.items():
+        if summarize:
+            text_parts.append(f"{code}: {len(rows)} mediciones")
+        else:
+            text_parts.append(code)
+            text_parts.extend("  " + " · ".join(_measure_cells(r)) for r in rows)
+    if summarize:
+        text_parts.append(f"\n{more}")
+    text_parts.append(f"\nHistorial: {link}\n\n{FOOTER}")
+
+    body = _title(escape(subject))
+    body += f"<p>Se recibieron <strong>{n}</strong> mediciones nuevas de {escape(device_name)}.</p>"
+    if alert_lines:
+        body += _notice("Alertas: " + " | ".join(alert_lines))
+    for code, rows in by_patient.items():
+        if summarize:
+            body += f"<p><strong>{escape(code)}</strong>: {len(rows)} mediciones</p>"
+            continue
+        body += f'<p style="margin:16px 0 4px;"><strong>{escape(code)}</strong></p>'
+        body += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
+        body += _row(header, header=True) + "".join(_row(_measure_cells(r)) for r in rows)
+        body += "</table>"
+    if summarize:
+        body += _small(more)
+    body += _button(link, "Abrir historial")
+    return subject, "\n".join(text_parts), _layout(subject, body)
