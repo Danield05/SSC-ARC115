@@ -2,9 +2,9 @@
 
 import logging
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 
 from app.modules.auth.dependencies import CurrentUser, require_roles
 from app.modules.devices import service as devices_service
@@ -70,3 +70,33 @@ def patient_summary(patient_code: str, user: CurrentUser = Depends(any_role)):  
         return service.summary(patient_code, user.role, user.email)
     except PatientNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+
+
+@history_router.get("/{patient_code}/export")
+def patient_export(
+    patient_code: str,
+    user: CurrentUser = Depends(any_role),  # noqa: B008
+    fmt: Annotated[Literal["xlsx", "csv"], Query(alias="format")] = "xlsx",
+    start: Annotated[datetime | None, Query(alias="from")] = None,
+    end: Annotated[datetime | None, Query(alias="to")] = None,
+    identified: bool = False,
+):
+    try:
+        content, media_type, name = service.export_file(
+            patient_code, fmt, start, end, user.role, user.email, identified
+        )
+    except PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+    except service.InvalidRangeError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "La fecha inicial es posterior a la final"
+        ) from None
+    except service.ExportForbiddenError:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Solo un administrador puede exportar datos personales"
+        ) from None
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )

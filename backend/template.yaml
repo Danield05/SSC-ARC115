@@ -50,6 +50,7 @@ Resources:
           - !Ref AllowedOrigin
         AllowMethods: [GET, POST, PATCH, OPTIONS]
         AllowHeaders: [authorization, content-type, x-api-key]
+        ExposeHeaders: [content-disposition]
 
   ApiFunction:
     Type: AWS::Serverless::Function
