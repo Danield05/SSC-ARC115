@@ -35,6 +35,8 @@ class MeasurementOut(BaseModel):
     spo2: int
     bpm: int
     alert: bool
+    bmi: float | None = None
+    bmi_category: str | None = None
 
 
 class Thresholds(BaseModel):
@@ -48,4 +50,7 @@ class Thresholds(BaseModel):
 class HistoryOut(BaseModel):
     patient_code: str
     thresholds: Thresholds
+    height_cm: float | None = None
+    sex: str = ""
+    age: int | None = None
     items: list[MeasurementOut]

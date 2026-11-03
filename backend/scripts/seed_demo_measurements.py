@@ -41,7 +41,14 @@ def iso(moment: datetime) -> str:
 
 def main() -> None:
     patient = patients_service.create_patient(
-        {"name": "Paciente de ejemplo", "age": 54, "phone": "7000-0000"}, "demo@example.com"
+        {
+            "name": "Paciente de ejemplo",
+            "age": 54,
+            "phone": "7000-0000",
+            "sex": "F",
+            "height_cm": 162,
+        },
+        "demo@example.com",
     )
     code = patient["patient_code"]
     start = datetime.now(UTC).replace(hour=15, minute=0, second=0, microsecond=0) - timedelta(
