@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, Ruler, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, ArrowLeft, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -7,9 +7,11 @@ import StatCard from '@/shared/components/StatCard'
 import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
+import SummaryPanel from '../components/SummaryPanel'
 import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
 import { useHistory } from '../hooks/useHistory'
+import { useSummary } from '../hooks/useSummary'
 import { formatDateTime, formatNumber, paddedDomain, spo2OutOfRange, tempOutOfRange } from '../lib/format'
 import type { Measurement, RangeDays } from '../types'
 
@@ -25,6 +27,7 @@ export default function PatientHistoryPage() {
   const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(30)
   const { data, loading, error, notFound } = useHistory(code, days)
+  const { data: summary } = useSummary(code)
 
   const charts = useMemo(() => {
     if (!data) return null
@@ -65,14 +68,6 @@ export default function PatientHistoryPage() {
   const items = data?.items ?? []
   const latest = items.at(-1)
   const thresholds = data?.thresholds
-  const bmiHint = !data
-    ? ''
-    : latest?.bmi == null
-      ? 'Registra la estatura en la ficha del paciente'
-      : (latest.bmi_category ??
-        (data.age == null || !data.sex
-          ? 'Completa la edad y el sexo en la ficha para ver la categoría'
-          : 'Categoría no disponible para menores de 5 años'))
   const title = patient?.name || `Paciente ${code}`
   const details = [code, patient?.age != null ? `${patient.age} años` : '', latest ? `última medición ${formatDateTime(latest.ts)}` : '']
     .filter(Boolean)
@@ -114,7 +109,7 @@ export default function PatientHistoryPage() {
       )}
 
       {latest && thresholds && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="Temperatura"
             value={`${formatNumber(latest.temp_c, 1)} °C`}
@@ -131,14 +126,10 @@ export default function PatientHistoryPage() {
           />
           <StatCard title="Pulso" value={`${latest.bpm} lpm`} hint="Última medición" icon={HeartPulse} />
           <StatCard title="Peso" value={`${formatNumber(latest.weight_kg, 1)} kg`} hint="Última medición" icon={Scale} />
-          <StatCard
-            title="IMC"
-            value={latest.bmi == null ? '—' : formatNumber(latest.bmi, 1)}
-            hint={bmiHint}
-            icon={Ruler}
-          />
         </div>
       )}
+
+      {summary && <SummaryPanel summary={summary} />}
 
       {charts && thresholds && (
         <div className="grid gap-4 lg:grid-cols-2">
