@@ -1,6 +1,27 @@
-# Base de datos local (perfil de desarrollo). Uso: docker compose up -d
-# Los datos persisten en el volumen "dynamodb-data": sobreviven a `docker compose down`
-# y a reiniciar la PC. Para empezar de cero: docker compose down -v
+# Entorno local completo: base de datos, tablas, API y frontend.
+#
+#   docker compose up --build        (primera vez; luego basta `docker compose up`)
+#   Frontend: http://localhost:5173   API: http://localhost:8000/docs   Base: puerto 8001
+#
+# Los datos persisten en el volumen "dynamodb-data": sobreviven a `docker compose down` y a
+# reiniciar la PC. Para empezar de cero: docker compose down -v
+#
+# Solo la base (para correr la API y el frontend a mano, sin contenedores):
+#   docker compose up -d dynamodb
+
+x-backend-env: &backend-env
+  DYNAMODB_ENDPOINT: http://dynamodb:8000
+  # La base local exige credenciales pero acepta cualquier valor.
+  AWS_ACCESS_KEY_ID: local
+  AWS_SECRET_ACCESS_KEY: local
+  AWS_DEFAULT_REGION: us-east-1
+  # Solo para este entorno local: en AWS el JWT_SECRET es un secreto de GitHub. Se puede cambiar
+  # exportando JWT_SECRET antes de levantar; con otro valor las sesiones abiertas se invalidan.
+  JWT_SECRET: ${JWT_SECRET:-solo-para-docker-local-no-usar-en-aws-0123456789abcdef}
+  ALLOWED_ORIGIN: http://localhost:5173
+  # Los correos (invitaciones, recuperación) salen en la consola del contenedor "backend".
+  MAIL_CONSOLE: "1"
+
 services:
   dynamodb:
     image: amazon/dynamodb-local:latest
@@ -10,6 +31,50 @@ services:
       - "8001:8000"
     volumes:
       - dynamodb-data:/home/dynamodblocal/data
+
+  # Crea las tablas y el dispositivo de prueba (clave dev-key-local) y termina. Es repetible.
+  setup:
+    build: ./backend
+    image: ssc-arc115-backend
+    environment: *backend-env
+    command:
+      - sh
+      - -c
+      - 'for i in $$(seq 1 30); do python scripts/create_tables.py && exit 0; echo "Esperando la base..."; sleep 2; done; exit 1'
+    depends_on:
+      - dynamodb
+    restart: "no"
+
+  backend:
+    build: ./backend
+    image: ssc-arc115-backend
+    environment: *backend-env
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "8000:8000"
+    volumes:
+      # El código se monta para que un cambio en app/ recargue la API sin reconstruir la imagen.
+      - ./backend/app:/app/app
+      - ./backend/scripts:/app/scripts
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+
+  frontend:
+    build: ./frontend
+    environment:
+      # El navegador (en la PC, no en el contenedor) es quien llama a la API.
+      VITE_API_URL: http://localhost:8000
+      # Docker Desktop en Windows no avisa los cambios de archivos montados: se revisan por sondeo.
+      VITE_USE_POLLING: "1"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - backend
 
 volumes:
   dynamodb-data:

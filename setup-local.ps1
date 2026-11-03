@@ -82,7 +82,7 @@ if ($SinBase) {
     Write-Host 'La base ya esta corriendo en el puerto 8001.'
     $baseLista = $true
 } elseif ($hayDocker) {
-    & docker compose up -d
+    & docker compose up -d dynamodb
     if ($LASTEXITCODE -ne 0) { Falla 'docker compose fallo. Abre Docker Desktop y vuelve a intentar.' }
     for ($i = 0; $i -lt 30 -and -not (PuertoAbierto 8001); $i++) { Start-Sleep -Seconds 1 }
     if (PuertoAbierto 8001) { $baseLista = $true } else { Aviso 'La base no respondio en 30 segundos.' }
