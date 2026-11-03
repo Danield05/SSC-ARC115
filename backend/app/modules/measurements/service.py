@@ -57,9 +57,9 @@ def _to_item(device_id: str, record: Record, received_at: str) -> dict:
     }
 
 
-def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, list[dict]]:
-    """Guarda el lote. Devuelve el resultado del contrato y los registros nuevos guardados."""
-    authenticate_device(batch.device_id, api_key)
+def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, list[dict], dict]:
+    """Guarda el lote. Devuelve el resultado del contrato, los registros nuevos y el dispositivo."""
+    device = authenticate_device(batch.device_id, api_key)
     received_at = _iso_utc(datetime.now(UTC))
     saved: list[str] = []
     duplicates: list[str] = []
@@ -72,7 +72,12 @@ def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, l
             new_items.append(item)
         else:
             duplicates.append(record.record_id)
-    return BatchResult(saved=saved, duplicates=duplicates), new_items
+    return BatchResult(saved=saved, duplicates=duplicates), new_items, device
+
+
+def thresholds() -> dict:
+    s = get_settings()
+    return {"temp_low_c": s.temp_low_c, "temp_high_c": s.temp_high_c, "spo2_min": s.spo2_min}
 
 
 MAX_HISTORY = 1000
@@ -97,13 +102,8 @@ def history(
     end_ts = _iso_utc(end) if end else _LAST_TS
     if start_ts > end_ts:
         raise InvalidRangeError(patient_code)
-    s = get_settings()
     return {
         "patient_code": patient_code,
-        "thresholds": {
-            "temp_low_c": s.temp_low_c,
-            "temp_high_c": s.temp_high_c,
-            "spo2_min": s.spo2_min,
-        },
+        "thresholds": thresholds(),
         "items": repository.list_measurements(patient_code, start_ts, end_ts, MAX_HISTORY),
     }
