@@ -4,17 +4,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from app.core.config import get_settings
-from app.core.security import verify_api_key
-from app.modules.devices import repository as devices_repository
+from app.modules.devices import service as devices_service
 from app.modules.measurements import repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
 from app.modules.patients import repository as patients_repository
 from app.modules.patients import service as patients_service
 from app.modules.patients.bmi import bmi, bmi_category
-
-
-class InvalidDeviceKeyError(Exception):
-    """Clave ausente o inválida, dispositivo desconocido o dado de baja."""
 
 
 def _iso_utc(ts: datetime) -> str:
@@ -29,18 +24,6 @@ def is_alert(record: Record) -> bool:
     return (
         record.temp_c <= s.temp_low_c or record.temp_c >= s.temp_high_c or record.spo2 < s.spo2_min
     )
-
-
-def authenticate_device(device_id: str, api_key: str | None) -> dict:
-    device = devices_repository.get_device(device_id)
-    if (
-        not api_key
-        or device is None
-        or not device.get("active", True)
-        or not verify_api_key(api_key, device.get("api_key_hash", ""))
-    ):
-        raise InvalidDeviceKeyError(device_id)
-    return device
 
 
 def _to_item(device_id: str, record: Record, received_at: str) -> dict:
@@ -60,7 +43,7 @@ def _to_item(device_id: str, record: Record, received_at: str) -> dict:
 
 def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, list[dict], dict]:
     """Guarda el lote. Devuelve el resultado del contrato, los registros nuevos y el dispositivo."""
-    device = authenticate_device(batch.device_id, api_key)
+    device = devices_service.authenticate_device(batch.device_id, api_key)
     received_at = _iso_utc(datetime.now(UTC))
     saved: list[str] = []
     duplicates: list[str] = []
