@@ -9,7 +9,12 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from app.modules.auth.dependencies import CurrentUser, require_roles
 from app.modules.devices import service as devices_service
 from app.modules.measurements import service
-from app.modules.measurements.schemas import BatchResult, HistoryOut, MeasurementBatch
+from app.modules.measurements.schemas import (
+    BatchResult,
+    HistoryOut,
+    MeasurementBatch,
+    SummaryOut,
+)
 from app.modules.notifications import service as notifications
 from app.modules.patients.service import PatientNotFoundError
 
@@ -57,3 +62,11 @@ def patient_history(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "La fecha inicial es posterior a la final"
         ) from None
+
+
+@history_router.get("/{patient_code}/summary", response_model=SummaryOut)
+def patient_summary(patient_code: str, user: CurrentUser = Depends(any_role)):  # noqa: B008
+    try:
+        return service.summary(patient_code, user.role, user.email)
+    except PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
