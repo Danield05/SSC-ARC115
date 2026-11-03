@@ -49,7 +49,7 @@
 # ---------------------------------------------------------------------
 # Opcion A (recomendada): Docker Desktop. Los datos persisten.
 #
-#     docker compose up -d                  (desde la raiz del repo)
+#     docker compose up -d dynamodb         (desde la raiz del repo)
 #
 # Opcion B (sin Docker): base falsa de moto, ya instalada arriba.
 # Los datos se pierden al cerrarla. Desde backend\ con el entorno activo:

@@ -8,4 +8,6 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
+  // Solo en Docker (docker-compose.yml): los archivos montados desde Windows no emiten eventos.
+  server: { watch: process.env.VITE_USE_POLLING === '1' ? { usePolling: true } : undefined },
 })

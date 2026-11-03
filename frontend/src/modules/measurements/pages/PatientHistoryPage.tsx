@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, ArrowLeft, Download, FileSpreadsheet, MonitorPlay, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -9,6 +9,7 @@ import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
 import SummaryPanel from '../components/SummaryPanel'
+import TempPulseScatter from '../components/TempPulseScatter'
 import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
 import { useExport } from '../hooks/useExport'
@@ -101,6 +102,10 @@ export default function PatientHistoryPage() {
               {items.length === 1 ? '1 medición' : `${items.length} mediciones`}
             </p>
           )}
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link to={`/patients/${encodeURIComponent(code)}/monitor`} />}>
+            <MonitorPlay className="size-4" />
+            Vista de monitor
+          </Button>
           <Button size="sm" disabled={exporter.busy !== null} onClick={() => exporter.download('xlsx')}>
             <FileSpreadsheet className="size-4" />
             {exporter.busy === 'xlsx' ? 'Preparando…' : 'Descargar Excel'}
@@ -187,6 +192,10 @@ export default function PatientHistoryPage() {
             dimmed={loading}
           />
         </div>
+      )}
+
+      {items.length > 0 && (
+        <TempPulseScatter items={items} r={summary?.correlation?.temp_bpm?.r ?? null} n={summary?.correlation?.temp_bpm?.n ?? 0} />
       )}
 
       {items.length > 0 && thresholds && <MeasurementsTable items={items} thresholds={thresholds} />}

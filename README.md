@@ -64,7 +64,40 @@ Las variables del backend y del frontend, con valores de ejemplo, están en [`.e
 
 ## 💻 Ejecutar el proyecto en local
 
-Requisitos: Docker Desktop, Python 3.12 o superior y Node.js 22.
+### 🐳 Opción A: todo con Docker (la más fácil)
+
+Solo necesitas **Docker Desktop abierto** (no hace falta instalar Python ni Node). Desde la raíz del repo:
+
+```powershell
+docker compose up --build
+```
+
+La primera vez tarda unos minutos (descarga las imágenes e instala las dependencias); después basta `docker compose up`. Levanta cuatro cosas: la base de datos (DynamoDB Local), un paso que crea las tablas y un dispositivo de prueba, la API y el frontend. Cuando termine de arrancar, abre <http://localhost:5173>; la documentación de la API está en <http://localhost:8000/docs>.
+
+Crear el primer administrador (en **otra terminal**, mientras lo anterior sigue corriendo; pide la contraseña por teclado):
+
+```powershell
+docker compose run --rm backend python scripts/create_admin.py admin@example.com
+```
+
+Opcional, para ver datos de ejemplo:
+
+```powershell
+docker compose run --rm backend python scripts/seed_demo_users.py --local          # promotor y evaluador (pide una contraseña)
+docker compose run --rm backend python scripts/seed_demo_measurements.py --local   # dos pacientes con ~30 días de mediciones
+```
+
+Cosas que conviene saber:
+- **Cambios en el código:** lo que edites en `backend/app/` y en `frontend/src/` se refleja solo (la API y Vite se recargan). Si cambias dependencias (`requirements.txt` o `package.json`), vuelve a correr `docker compose up --build`.
+- **Correos:** las invitaciones y la recuperación de contraseña no se envían: se imprimen, con la contraseña provisional, en los registros de la API (`docker compose logs -f backend`).
+- **Datos:** persisten aunque apagues todo (`docker compose down`). Para empezar de cero: `docker compose down -v`.
+- **Puertos:** usa el 5173 (frontend), el 8000 (API) y el 8001 (base). Si alguno está ocupado, ciérralo antes de levantar.
+- **Pruebas y lint:** `pytest`, `ruff` y `npm run lint` se siguen corriendo con Python y Node en tu PC (ver «Pruebas y calidad» más abajo).
+- **Solo la base:** `docker compose up -d dynamodb` levanta únicamente la base de datos, para correr la API y el frontend a mano (Opción B).
+
+### 🧰 Opción B: a mano (Python y Node en tu PC)
+
+Requisitos: Docker Desktop (solo para la base de datos), Python 3.12 o superior y Node.js 22.
 
 **Atajo:** el script `setup-local.ps1` hace los pasos de instalación de una vez (revisa las herramientas, instala Python y npm, levanta la base y crea las tablas) y al final imprime los comandos para crear el administrador y arrancar la API y el frontend:
 
@@ -77,7 +110,7 @@ Sin Docker, `setup-local.ps1` indica cómo usar `moto_server`. El archivo `requi
 ### 🗄️ 1. Base de datos (DynamoDB Local en Docker)
 
 ```powershell
-docker compose up -d        # raíz del repo: base en el puerto 8001
+docker compose up -d dynamodb   # raíz del repo: base en el puerto 8001
 ```
 
 Los datos **persisten** en un volumen de Docker: sobreviven a `docker compose down` y a reiniciar la PC. Para borrar todo y empezar de cero: `docker compose down -v`.
@@ -139,6 +172,8 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 ### 📈 Historial y gráficas
 
 En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro de 7, 30 o 90 días (o todo), la última medición de cada parámetro, una gráfica por parámetro (temperatura y SpO₂ con su rango normal sombreado; los valores fuera de rango van en rojo) y una tabla con todas las mediciones. El promotor solo ve a sus propios pacientes.
+
+**Vista de monitor** (botón *Vista de monitor* en el historial, ruta `/patients/:code/monitor`): los cuatro valores de la medición elegida en grande y una línea de tiempo para recorrer las mediciones (con las flechas del teclado, o con los botones anterior, siguiente y reproducir), con marcas rojas en las que tuvieron alerta y una traza pequeña por parámetro. El fondo y la flecha de cada valor indican cuánto se aleja de las 10 mediciones anteriores de esa persona (ámbar: algo; rojo: mucho; a partir de la cuarta medición); es informativo, no un umbral clínico. El historial también trae una gráfica de temperatura contra pulso con su recta de regresión y el coeficiente r. Para verlo con datos: `python scripts/seed_demo_measurements.py --local` crea dos pacientes de ejemplo (un adulto con un episodio febril, una lectura mala de SpO₂ y un día con varias mediciones, y un niño de 9 años con otra línea base).
 
 ### 🔢 Códigos automáticos
 
