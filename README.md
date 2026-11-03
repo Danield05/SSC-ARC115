@@ -167,6 +167,22 @@ cd frontend; npm run lint; npm run build
 
 Si `docker compose` falla en Windows con `docker-credential-desktop`, agrega `C:\Program Files\Docker\Docker\resources\bin` al PATH.
 
+## 🔧 Firmware (ESP32)
+
+El código está en `firmware/gp03_monitor/` (C++, Arduino framework). Mide peso, temperatura y SpO₂/pulso, muestra el resultado en la OLED, lo guarda en la flash interna (LittleFS) y lo sincroniza por lotes cuando hay Wi-Fi. Sin internet funciona igual, con una salvedad: la hora sale de NTP, así que el equipo necesita Wi-Fi al menos una vez después de encenderse (sin hora muestra «Sin hora» y no mide).
+
+**Preparar el IDE (una vez):** Arduino IDE → núcleo *esp32 de Espressif* (probado con 3.3.12) y placa *ESP32 Dev Module*. Librerías (Gestor de bibliotecas): ArduinoJson 7.4.3, HX711 0.6.6 (Bogdan Necula), SparkFun MAX3010x Pulse and Proximity Sensor Library 1.1.2, Adafruit MLX90614 Library 2.1.7, Adafruit SSD1306 2.5.17 y Adafruit GFX Library 1.13.0.
+
+**Credenciales:** copiar `secrets.example.h` como `secrets.h` (junto al `.ino`; no se sube a git) y llenar `WIFI_SSID`, `WIFI_PASSWORD`, `API_URL` (dirección base de la API, sin ruta), `DEVICE_ID` y `API_KEY` (la clave se muestra una sola vez al dar de alta el dispositivo en la página).
+
+**Pines, umbrales y calibración:** todo en `config.h`. Los pines son una propuesta y hay que confirmarlos con la placa perforada. Para subir el programa conviene elegir la partición *No OTA (2MB APP/2MB SPIFFS)*; con la partición por defecto el programa ocupa el 88 % de su espacio. Subir con «borrar toda la flash» borra los registros guardados.
+
+**Uso:** el botón 1 recorre los pacientes (en reposo, pulsación larga = tara de la báscula) y el botón 2 acepta (pulsación larga = cancelar). LED verde = todo bien, amarillo = aviso (pendientes por enviar, memoria al 80 %, sin hora o un sensor sin responder), rojo con buzzer = valor fuera de umbral.
+
+**Pruebas por separado** (`firmware/pruebas/`, una por sensor): escáner I2C, calibración del HX711, MAX30102, MLX90614, OLED y LittleFS. Se hacen antes de probar el programa completo y sus capturas sirven de evidencia para el documento.
+
+**Compilar sin el IDE:** `arduino-cli compile --fqbn esp32:esp32:esp32 firmware/gp03_monitor` (con `secrets.h` creado). El CI hace lo mismo con `secrets.example.h`.
+
 ## 🌿 Flujo de trabajo con Git
 
 Las dependencias se actualizan a mano; no hay Dependabot.
