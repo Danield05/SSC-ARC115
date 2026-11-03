@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from app.core.config import get_settings
 from app.modules.devices import service as devices_service
-from app.modules.measurements import repository
+from app.modules.measurements import metrics, repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
 from app.modules.patients import repository as patients_repository
 from app.modules.patients import service as patients_service
@@ -103,4 +103,50 @@ def history(
         "sex": patient["sex"],
         "age": patient["age"],
         "items": [_with_bmi(m, patient) for m in measurements],
+    }
+
+
+def _trend(variable: str, items: list[dict]) -> dict | None:
+    points = [(metrics.parse_ts(m["ts"]), m[variable]) for m in items]
+    per_day = metrics.slope_per_day(points)
+    if per_day is None:
+        return None
+    return {"per_day": round(per_day, 3), "label": metrics.trend_label(variable, per_day)}
+
+
+def summary(patient_code: str, role: str, email: str) -> dict:
+    """Métricas del paciente con sus últimas MAX_HISTORY mediciones. Lanza PatientNotFoundError
+    si el rol no lo ve (igual que el historial)."""
+    patient = patients_service.get_patient(patient_code, role, email)
+    items = repository.list_measurements(patient_code, _FIRST_TS, _LAST_TS, MAX_HISTORY)
+    if not items:
+        return {"patient_code": patient_code, "count": 0}
+    last = items[-1]
+    bmi_value = bmi(last["weight_kg"], patient["height_cm"])
+    pairs = [(m["temp_c"], m["bpm"]) for m in items]
+    r = metrics.pearson([float(t) for t, _ in pairs], [float(b) for _, b in pairs])
+    windows = {}
+    for days in metrics.WINDOW_DAYS:
+        chosen = metrics.window(items, days)
+        windows[str(days)] = {"n": len(chosen)} | {
+            v: metrics.stats([m[v] for m in chosen]) for v in metrics.VARIABLES
+        }
+    return {
+        "patient_code": patient_code,
+        "count": len(items),
+        "first_ts": items[0]["ts"],
+        "last_ts": last["ts"],
+        "latest": {k: last[k] for k in ("ts", "weight_kg", "temp_c", "spo2", "bpm")},
+        "bmi": None
+        if bmi_value is None
+        else {
+            "value": bmi_value,
+            "category": bmi_category(bmi_value, patient["age"], patient["sex"]),
+            "height_cm": patient["height_cm"],
+        },
+        "weight_change": metrics.weight_change(items),
+        "windows": windows,
+        "trend": {v: _trend(v, items) for v in metrics.VARIABLES},
+        "alert_pct": metrics.alert_percentage(items),
+        "correlation": {"temp_bpm": None if r is None else {"r": round(r, 2), "n": len(items)}},
     }

@@ -54,3 +54,74 @@ class HistoryOut(BaseModel):
     sex: str = ""
     age: int | None = None
     items: list[MeasurementOut]
+
+
+class Stats(BaseModel):
+    avg: float
+    min: float
+    max: float
+
+
+class WindowOut(BaseModel):
+    n: int
+    weight_kg: Stats | None = None
+    temp_c: Stats | None = None
+    spo2: Stats | None = None
+    bpm: Stats | None = None
+
+
+class Latest(BaseModel):
+    ts: str
+    weight_kg: float
+    temp_c: float
+    spo2: int
+    bpm: int
+
+
+class BmiOut(BaseModel):
+    value: float
+    category: str | None = None
+    height_cm: float
+
+
+class WeightChange(BaseModel):
+    vs_first_kg: float | None = None
+    vs_first_pct: float | None = None
+    vs_previous_kg: float | None = None
+
+
+class TrendOut(BaseModel):
+    per_day: float
+    label: str
+
+
+class Trends(BaseModel):
+    weight_kg: TrendOut | None = None
+    temp_c: TrendOut | None = None
+    spo2: TrendOut | None = None
+    bpm: TrendOut | None = None
+
+
+class CorrelationOut(BaseModel):
+    r: float
+    n: int
+
+
+class Correlations(BaseModel):
+    temp_bpm: CorrelationOut | None = None
+
+
+class SummaryOut(BaseModel):
+    """Resumen del paciente. Sin mediciones: `count` en 0 y todo lo demás en null."""
+
+    patient_code: str
+    count: int
+    first_ts: str | None = None
+    last_ts: str | None = None
+    latest: Latest | None = None
+    bmi: BmiOut | None = None
+    weight_change: WeightChange | None = None
+    windows: dict[str, WindowOut] | None = None
+    trend: Trends | None = None
+    alert_pct: float | None = None
+    correlation: Correlations | None = None
