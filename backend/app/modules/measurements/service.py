@@ -4,16 +4,12 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from app.core.config import get_settings
-from app.core.security import verify_api_key
-from app.modules.devices import repository as devices_repository
-from app.modules.measurements import repository
+from app.modules.devices import service as devices_service
+from app.modules.measurements import export, metrics, repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
 from app.modules.patients import repository as patients_repository
 from app.modules.patients import service as patients_service
-
-
-class InvalidDeviceKeyError(Exception):
-    """Clave ausente o inválida, dispositivo desconocido o dado de baja."""
+from app.modules.patients.bmi import bmi, bmi_category
 
 
 def _iso_utc(ts: datetime) -> str:
@@ -28,18 +24,6 @@ def is_alert(record: Record) -> bool:
     return (
         record.temp_c <= s.temp_low_c or record.temp_c >= s.temp_high_c or record.spo2 < s.spo2_min
     )
-
-
-def authenticate_device(device_id: str, api_key: str | None) -> dict:
-    device = devices_repository.get_device(device_id)
-    if (
-        not api_key
-        or device is None
-        or not device.get("active", True)
-        or not verify_api_key(api_key, device.get("api_key_hash", ""))
-    ):
-        raise InvalidDeviceKeyError(device_id)
-    return device
 
 
 def _to_item(device_id: str, record: Record, received_at: str) -> dict:
@@ -57,9 +41,9 @@ def _to_item(device_id: str, record: Record, received_at: str) -> dict:
     }
 
 
-def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, list[dict]]:
-    """Guarda el lote. Devuelve el resultado del contrato y los registros nuevos guardados."""
-    authenticate_device(batch.device_id, api_key)
+def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, list[dict], dict]:
+    """Guarda el lote. Devuelve el resultado del contrato, los registros nuevos y el dispositivo."""
+    device = devices_service.authenticate_device(batch.device_id, api_key)
     received_at = _iso_utc(datetime.now(UTC))
     saved: list[str] = []
     duplicates: list[str] = []
@@ -72,7 +56,12 @@ def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, l
             new_items.append(item)
         else:
             duplicates.append(record.record_id)
-    return BatchResult(saved=saved, duplicates=duplicates), new_items
+    return BatchResult(saved=saved, duplicates=duplicates), new_items, device
+
+
+def thresholds() -> dict:
+    s = get_settings()
+    return {"temp_low_c": s.temp_low_c, "temp_high_c": s.temp_high_c, "spo2_min": s.spo2_min}
 
 
 MAX_HISTORY = 1000
@@ -84,6 +73,15 @@ class InvalidRangeError(Exception):
     """`from` es posterior a `to`."""
 
 
+def _with_bmi(measurement: dict, patient: dict) -> dict:
+    value = bmi(measurement["weight_kg"], patient["height_cm"])
+    return {
+        **measurement,
+        "bmi": value,
+        "bmi_category": bmi_category(value, patient["age"], patient["sex"]),
+    }
+
+
 def history(
     patient_code: str,
     start: datetime | None,
@@ -92,18 +90,104 @@ def history(
     email: str,
 ) -> dict:
     """Mediciones de un paciente en un rango. Lanza PatientNotFoundError si el rol no lo ve."""
-    patients_service.get_patient(patient_code, role, email)
+    patient = patients_service.get_patient(patient_code, role, email)
     start_ts = _iso_utc(start) if start else _FIRST_TS
     end_ts = _iso_utc(end) if end else _LAST_TS
     if start_ts > end_ts:
         raise InvalidRangeError(patient_code)
-    s = get_settings()
+    measurements = repository.list_measurements(patient_code, start_ts, end_ts, MAX_HISTORY)
     return {
         "patient_code": patient_code,
-        "thresholds": {
-            "temp_low_c": s.temp_low_c,
-            "temp_high_c": s.temp_high_c,
-            "spo2_min": s.spo2_min,
-        },
-        "items": repository.list_measurements(patient_code, start_ts, end_ts, MAX_HISTORY),
+        "thresholds": thresholds(),
+        "height_cm": patient["height_cm"],
+        "sex": patient["sex"],
+        "age": patient["age"],
+        "items": [_with_bmi(m, patient) for m in measurements],
     }
+
+
+def _trend(variable: str, items: list[dict]) -> dict | None:
+    points = [(metrics.parse_ts(m["ts"]), m[variable]) for m in items]
+    per_day = metrics.slope_per_day(points)
+    if per_day is None:
+        return None
+    return {"per_day": round(per_day, 3), "label": metrics.trend_label(variable, per_day)}
+
+
+def summary(patient_code: str, role: str, email: str) -> dict:
+    """Métricas del paciente con sus últimas MAX_HISTORY mediciones. Lanza PatientNotFoundError
+    si el rol no lo ve (igual que el historial)."""
+    patient = patients_service.get_patient(patient_code, role, email)
+    items = repository.list_measurements(patient_code, _FIRST_TS, _LAST_TS, MAX_HISTORY)
+    if not items:
+        return {"patient_code": patient_code, "count": 0}
+    last = items[-1]
+    bmi_value = bmi(last["weight_kg"], patient["height_cm"])
+    pairs = [(m["temp_c"], m["bpm"]) for m in items]
+    r = metrics.pearson([float(t) for t, _ in pairs], [float(b) for _, b in pairs])
+    windows = {}
+    for days in metrics.WINDOW_DAYS:
+        chosen = metrics.window(items, days)
+        windows[str(days)] = {"n": len(chosen)} | {
+            v: metrics.stats([m[v] for m in chosen]) for v in metrics.VARIABLES
+        }
+    return {
+        "patient_code": patient_code,
+        "count": len(items),
+        "first_ts": items[0]["ts"],
+        "last_ts": last["ts"],
+        "latest": {k: last[k] for k in ("ts", "weight_kg", "temp_c", "spo2", "bpm")},
+        "bmi": None
+        if bmi_value is None
+        else {
+            "value": bmi_value,
+            "category": bmi_category(bmi_value, patient["age"], patient["sex"]),
+            "height_cm": patient["height_cm"],
+        },
+        "weight_change": metrics.weight_change(items),
+        "windows": windows,
+        "trend": {v: _trend(v, items) for v in metrics.VARIABLES},
+        "alert_pct": metrics.alert_percentage(items),
+        "correlation": {"temp_bpm": None if r is None else {"r": round(r, 2), "n": len(items)}},
+    }
+
+
+EXPORT_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "csv": "text/csv; charset=utf-8",
+}
+
+
+class ExportForbiddenError(Exception):
+    """Solo un administrador puede exportar con los datos personales del paciente."""
+
+
+def export_file(
+    patient_code: str,
+    fmt: str,
+    start: datetime | None,
+    end: datetime | None,
+    role: str,
+    email: str,
+    identified: bool = False,
+) -> tuple[bytes, str, str]:
+    """Archivo del historial (contenido, tipo MIME, nombre). Mismas comprobaciones de acceso y
+    de rango que el historial; los datos personales solo se incluyen si `identified` y es admin."""
+    data = history(patient_code, start, end, role, email)
+    if identified and role != "admin":
+        raise ExportForbiddenError(patient_code)
+    items = [{**m, "patient_code": patient_code} for m in data["items"]]
+    name = export.filename(patient_code, fmt, datetime.now(UTC).replace(tzinfo=None))
+    if fmt == "csv":
+        return export.build_csv(items), EXPORT_TYPES["csv"], name
+    personal = patients_service.get_patient(patient_code, role, email) if identified else None
+    content = export.build_xlsx(
+        code=patient_code,
+        age=data["age"],
+        sex=data["sex"],
+        height_cm=data["height_cm"],
+        items=items,
+        thresholds=data["thresholds"],
+        identified=personal,
+    )
+    return content, EXPORT_TYPES["xlsx"], name

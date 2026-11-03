@@ -1,6 +1,6 @@
 """Controlador HTTP del módulo devices."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from app.modules.auth.dependencies import CurrentUser, require_roles
 from app.modules.devices import service
@@ -9,6 +9,7 @@ from app.modules.devices.schemas import (
     DeviceCreate,
     DeviceCreated,
     DeviceOut,
+    DevicePatientsOut,
     DeviceUpdate,
 )
 
@@ -47,3 +48,12 @@ def rotate_key(device_id: str, _: CurrentUser = Depends(admin_only)):  # noqa: B
         return {"device_id": device_id, "api_key": service.rotate_api_key(device_id)}
     except service.DeviceNotFoundError:
         raise _not_found() from None
+
+
+@router.get("/{device_id}/patients", response_model=DevicePatientsOut)
+def device_patients(device_id: str, x_api_key: str | None = Header(default=None)):
+    """Lista de códigos para el ESP32. Se autentica con `x-api-key`, no con JWT."""
+    try:
+        return service.patient_codes(device_id, x_api_key)
+    except service.InvalidDeviceKeyError:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Clave de dispositivo inválida") from None

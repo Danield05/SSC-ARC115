@@ -3,8 +3,9 @@
 import secrets
 from datetime import UTC, datetime
 
-from app.core.security import hash_api_key
+from app.core.security import hash_api_key, verify_api_key
 from app.modules.devices import repository
+from app.modules.patients import service as patients_service
 
 ID_PREFIX = "ESP32-GP03-"
 MAX_ID_ATTEMPTS = 20
@@ -12,6 +13,10 @@ MAX_ID_ATTEMPTS = 20
 
 class DeviceNotFoundError(Exception):
     pass
+
+
+class InvalidDeviceKeyError(Exception):
+    """Clave ausente o inválida, dispositivo desconocido o dado de baja."""
 
 
 def to_public(device: dict) -> dict:
@@ -73,3 +78,31 @@ def rotate_api_key(device_id: str) -> str:
     if repository.update_device(device_id, {"api_key_hash": hash_api_key(api_key)}) is None:
         raise DeviceNotFoundError(device_id)
     return api_key
+
+
+def authenticate_device(device_id: str, api_key: str | None) -> dict:
+    """Valida la `x-api-key` contra el hash guardado. Devuelve el dispositivo."""
+    device = repository.get_device(device_id)
+    if (
+        not api_key
+        or device is None
+        or not device.get("active", True)
+        or not verify_api_key(api_key, device.get("api_key_hash", ""))
+    ):
+        raise InvalidDeviceKeyError(device_id)
+    return device
+
+
+def patient_codes(device_id: str, api_key: str | None) -> dict:
+    """Códigos de paciente que el ESP32 ofrece en su lista, y la hora del servidor (UTC).
+
+    Son los pacientes que vería el promotor del dispositivo. Solo códigos: sin nombres ni otros
+    datos personales, porque la pantalla del equipo no los necesita.
+    """
+    device = authenticate_device(device_id, api_key)
+    patients = patients_service.list_patients("promoter", device.get("promoter_email", ""))
+    return {
+        "device_id": device_id,
+        "server_time": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "patients": [p["patient_code"] for p in patients],
+    }

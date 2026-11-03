@@ -28,6 +28,12 @@ class DeviceCreated(DeviceOut):
     api_key: str
 
 
+class DevicePatientsOut(BaseModel):
+    device_id: str
+    server_time: str
+    patients: list[str]
+
+
 class ApiKeyOut(BaseModel):
     device_id: str
     api_key: str

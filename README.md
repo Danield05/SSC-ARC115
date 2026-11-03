@@ -9,12 +9,12 @@ Prototipo que mide **temperatura corporal, oximetría y pulso, y peso**, guarda 
 ## ⚙️ Cómo funciona
 
 ```
-ESP32 (sensores) → microSD (cola local) → HTTPS + JSON → API Gateway + Lambda → DynamoDB
+ESP32 (sensores) → memoria flash interna (cola local) → HTTPS + JSON → API Gateway + Lambda → DynamoDB
                                                                     └→ correo al promotor
 Frontend web ── consulta ──► la misma API (historial y gráficas por paciente)
 ```
 
-El dispositivo trabaja sin internet: guarda todo en la microSD y sincroniza el lote pendiente cuando vuelve el Wi-Fi, sin duplicar registros.
+El dispositivo trabaja sin internet: guarda todo en su memoria interna y sincroniza el lote pendiente cuando vuelve el Wi-Fi, sin duplicar registros.
 
 ## 🗂️ Estructura del repositorio
 
@@ -29,7 +29,7 @@ Cada módulo del backend y del frontend se organiza por funcionalidad (dispositi
 
 ## 🧰 Tecnologías
 
-ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · microSD · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
+ESP32 · MLX90614 (temperatura infrarroja) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
 
 ## 📊 Estado
 
@@ -64,7 +64,40 @@ Las variables del backend y del frontend, con valores de ejemplo, están en [`.e
 
 ## 💻 Ejecutar el proyecto en local
 
-Requisitos: Docker Desktop, Python 3.12 o superior y Node.js 22.
+### 🐳 Opción A: todo con Docker (la más fácil)
+
+Solo necesitas **Docker Desktop abierto** (no hace falta instalar Python ni Node). Desde la raíz del repo:
+
+```powershell
+docker compose up --build
+```
+
+La primera vez tarda unos minutos (descarga las imágenes e instala las dependencias); después basta `docker compose up`. Levanta cuatro cosas: la base de datos (DynamoDB Local), un paso que crea las tablas y un dispositivo de prueba, la API y el frontend. Cuando termine de arrancar, abre <http://localhost:5173>; la documentación de la API está en <http://localhost:8000/docs>.
+
+Crear el primer administrador (en **otra terminal**, mientras lo anterior sigue corriendo; pide la contraseña por teclado):
+
+```powershell
+docker compose run --rm backend python scripts/create_admin.py admin@example.com
+```
+
+Opcional, para ver datos de ejemplo:
+
+```powershell
+docker compose run --rm backend python scripts/seed_demo_users.py --local          # promotor y evaluador (pide una contraseña)
+docker compose run --rm backend python scripts/seed_demo_measurements.py --local   # dos pacientes con ~30 días de mediciones
+```
+
+Cosas que conviene saber:
+- **Cambios en el código:** lo que edites en `backend/app/` y en `frontend/src/` se refleja solo (la API y Vite se recargan). Si cambias dependencias (`requirements.txt` o `package.json`), vuelve a correr `docker compose up --build`.
+- **Correos:** las invitaciones y la recuperación de contraseña no se envían: se imprimen, con la contraseña provisional, en los registros de la API (`docker compose logs -f backend`).
+- **Datos:** persisten aunque apagues todo (`docker compose down`). Para empezar de cero: `docker compose down -v`.
+- **Puertos:** usa el 5173 (frontend), el 8000 (API) y el 8001 (base). Si alguno está ocupado, ciérralo antes de levantar.
+- **Pruebas y lint:** `pytest`, `ruff` y `npm run lint` se siguen corriendo con Python y Node en tu PC (ver «Pruebas y calidad» más abajo).
+- **Solo la base:** `docker compose up -d dynamodb` levanta únicamente la base de datos, para correr la API y el frontend a mano (Opción B).
+
+### 🧰 Opción B: a mano (Python y Node en tu PC)
+
+Requisitos: Docker Desktop (solo para la base de datos), Python 3.12 o superior y Node.js 22.
 
 **Atajo:** el script `setup-local.ps1` hace los pasos de instalación de una vez (revisa las herramientas, instala Python y npm, levanta la base y crea las tablas) y al final imprime los comandos para crear el administrador y arrancar la API y el frontend:
 
@@ -77,7 +110,7 @@ Sin Docker, `setup-local.ps1` indica cómo usar `moto_server`. El archivo `requi
 ### 🗄️ 1. Base de datos (DynamoDB Local en Docker)
 
 ```powershell
-docker compose up -d        # raíz del repo: base en el puerto 8001
+docker compose up -d dynamodb   # raíz del repo: base en el puerto 8001
 ```
 
 Los datos **persisten** en un volumen de Docker: sobreviven a `docker compose down` y a reiniciar la PC. Para borrar todo y empezar de cero: `docker compose down -v`.
@@ -140,9 +173,11 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 
 En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro de 7, 30 o 90 días (o todo), la última medición de cada parámetro, una gráfica por parámetro (temperatura y SpO₂ con su rango normal sombreado; los valores fuera de rango van en rojo) y una tabla con todas las mediciones. El promotor solo ve a sus propios pacientes.
 
+**Vista de monitor** (botón *Vista de monitor* en el historial, ruta `/patients/:code/monitor`): los cuatro valores de la medición elegida en grande y una línea de tiempo para recorrer las mediciones (con las flechas del teclado, o con los botones anterior, siguiente y reproducir), con marcas rojas en las que tuvieron alerta y una traza pequeña por parámetro. El fondo y la flecha de cada valor indican cuánto se aleja de las 10 mediciones anteriores de esa persona (ámbar: algo; rojo: mucho; a partir de la cuarta medición); es informativo, no un umbral clínico. El historial también trae una gráfica de temperatura contra pulso con su recta de regresión y el coeficiente r. Para verlo con datos: `python scripts/seed_demo_measurements.py --local` crea dos pacientes de ejemplo (un adulto con un episodio febril, una lectura mala de SpO₂ y un día con varias mediciones, y un niño de 9 años con otra línea base).
+
 ### 🔢 Códigos automáticos
 
-- **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar solo el nombre es obligatorio; también se pueden guardar DUI, edad, teléfono, correo y dirección. El dispositivo solo guarda el código.
+- **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar son obligatorios el nombre, la edad y el sexo (M/F, para calcular la categoría del IMC); también se pueden guardar estatura, DUI, teléfono, correo y dirección. El dispositivo solo guarda el código.
 - **Dispositivos:** el sistema asigna el identificador (`ESP32-GP03-01`, `-02`…) y genera la clave; el identificador se copia al `secrets.h` del firmware junto con la clave.
 
 ### 🔍 Consultar los datos
@@ -166,6 +201,22 @@ cd frontend; npm run lint; npm run build
 ```
 
 Si `docker compose` falla en Windows con `docker-credential-desktop`, agrega `C:\Program Files\Docker\Docker\resources\bin` al PATH.
+
+## 🔧 Firmware (ESP32)
+
+El código está en `firmware/gp03_monitor/` (C++, Arduino framework). Mide peso, temperatura y SpO₂/pulso, muestra el resultado en la OLED, lo guarda en la flash interna (LittleFS) y lo sincroniza por lotes cuando hay Wi-Fi. Sin internet funciona igual, con una salvedad: la hora sale de NTP, así que el equipo necesita Wi-Fi al menos una vez después de encenderse (sin hora muestra «Sin hora» y no mide).
+
+**Preparar el IDE (una vez):** Arduino IDE → núcleo *esp32 de Espressif* (probado con 3.3.12) y placa *ESP32 Dev Module*. Librerías (Gestor de bibliotecas): ArduinoJson 7.4.3, HX711 0.6.6 (Bogdan Necula), SparkFun MAX3010x Pulse and Proximity Sensor Library 1.1.2, Adafruit MLX90614 Library 2.1.7, Adafruit SSD1306 2.5.17 y Adafruit GFX Library 1.13.0.
+
+**Credenciales:** copiar `secrets.example.h` como `secrets.h` (junto al `.ino`; no se sube a git) y llenar `WIFI_SSID`, `WIFI_PASSWORD`, `API_URL` (dirección base de la API, sin ruta), `DEVICE_ID` y `API_KEY` (la clave se muestra una sola vez al dar de alta el dispositivo en la página).
+
+**Pines, umbrales y calibración:** todo en `config.h`. Los pines son una propuesta y hay que confirmarlos con la placa perforada. Para subir el programa conviene elegir la partición *No OTA (2MB APP/2MB SPIFFS)*; con la partición por defecto el programa ocupa el 88 % de su espacio. Subir con «borrar toda la flash» borra los registros guardados.
+
+**Uso:** el botón 1 recorre los pacientes (en reposo, pulsación larga = tara de la báscula) y el botón 2 acepta (pulsación larga = cancelar). LED verde = todo bien, amarillo = aviso (pendientes por enviar, memoria al 80 %, sin hora o un sensor sin responder), rojo con buzzer = valor fuera de umbral.
+
+**Pruebas por separado** (`firmware/pruebas/`, una por sensor): escáner I2C, calibración del HX711, MAX30102, MLX90614, OLED y LittleFS. Se hacen antes de probar el programa completo y sus capturas sirven de evidencia para el documento.
+
+**Compilar sin el IDE:** `arduino-cli compile --fqbn esp32:esp32:esp32 firmware/gp03_monitor` (con `secrets.h` creado). El CI hace lo mismo con `secrets.example.h`.
 
 ## 🌿 Flujo de trabajo con Git
 

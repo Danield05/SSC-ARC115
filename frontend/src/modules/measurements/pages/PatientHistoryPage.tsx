@@ -1,15 +1,20 @@
-import { Activity, ArrowLeft, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, ArrowLeft, Download, FileSpreadsheet, MonitorPlay, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
+import SummaryPanel from '../components/SummaryPanel'
+import TempPulseScatter from '../components/TempPulseScatter'
 import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
+import { useExport } from '../hooks/useExport'
 import { useHistory } from '../hooks/useHistory'
+import { useSummary } from '../hooks/useSummary'
 import { formatDateTime, formatNumber, paddedDomain, spo2OutOfRange, tempOutOfRange } from '../lib/format'
 import type { Measurement, RangeDays } from '../types'
 
@@ -25,6 +30,8 @@ export default function PatientHistoryPage() {
   const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(30)
   const { data, loading, error, notFound } = useHistory(code, days)
+  const { data: summary } = useSummary(code)
+  const exporter = useExport(code, days)
 
   const charts = useMemo(() => {
     if (!data) return null
@@ -89,12 +96,37 @@ export default function PatientHistoryPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <RangeFilter value={days} onChange={setDays} />
-        {data && (
-          <p className="text-muted-foreground text-sm">
-            {items.length === 1 ? '1 medición' : `${items.length} mediciones`}
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {data && (
+            <p className="text-muted-foreground text-sm">
+              {items.length === 1 ? '1 medición' : `${items.length} mediciones`}
+            </p>
+          )}
+          <Button size="sm" variant="outline" nativeButton={false} render={<Link to={`/patients/${encodeURIComponent(code)}/monitor`} />}>
+            <MonitorPlay className="size-4" />
+            Vista de monitor
+          </Button>
+          <Button size="sm" disabled={exporter.busy !== null} onClick={() => exporter.download('xlsx')}>
+            <FileSpreadsheet className="size-4" />
+            {exporter.busy === 'xlsx' ? 'Preparando…' : 'Descargar Excel'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={exporter.busy !== null}
+            onClick={() => exporter.download('csv')}
+          >
+            <Download className="size-4" />
+            {exporter.busy === 'csv' ? 'Preparando…' : 'CSV'}
+          </Button>
+        </div>
       </div>
+
+      {exporter.error && (
+        <Alert variant="destructive">
+          <AlertDescription>{exporter.error}</AlertDescription>
+        </Alert>
+      )}
 
       {data && items.length === 0 && !loading && (
         <Alert>
@@ -125,6 +157,8 @@ export default function PatientHistoryPage() {
           <StatCard title="Peso" value={`${formatNumber(latest.weight_kg, 1)} kg`} hint="Última medición" icon={Scale} />
         </div>
       )}
+
+      {summary && <SummaryPanel summary={summary} />}
 
       {charts && thresholds && (
         <div className="grid gap-4 lg:grid-cols-2">
@@ -158,6 +192,10 @@ export default function PatientHistoryPage() {
             dimmed={loading}
           />
         </div>
+      )}
+
+      {items.length > 0 && (
+        <TempPulseScatter items={items} r={summary?.correlation?.temp_bpm?.r ?? null} n={summary?.correlation?.temp_bpm?.n ?? 0} />
       )}
 
       {items.length > 0 && thresholds && <MeasurementsTable items={items} thresholds={thresholds} />}
