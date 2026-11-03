@@ -21,6 +21,7 @@ app.add_middleware(
     allow_origins=[settings.allowed_origin],
     allow_methods=["GET", "POST", "PATCH"],
     allow_headers=["authorization", "content-type", "x-api-key"],
+    expose_headers=["content-disposition"],
 )
 
 for r in (

@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from app.core.config import get_settings
 from app.modules.devices import service as devices_service
-from app.modules.measurements import metrics, repository
+from app.modules.measurements import export, metrics, repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
 from app.modules.patients import repository as patients_repository
 from app.modules.patients import service as patients_service
@@ -150,3 +150,44 @@ def summary(patient_code: str, role: str, email: str) -> dict:
         "alert_pct": metrics.alert_percentage(items),
         "correlation": {"temp_bpm": None if r is None else {"r": round(r, 2), "n": len(items)}},
     }
+
+
+EXPORT_TYPES = {
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "csv": "text/csv; charset=utf-8",
+}
+
+
+class ExportForbiddenError(Exception):
+    """Solo un administrador puede exportar con los datos personales del paciente."""
+
+
+def export_file(
+    patient_code: str,
+    fmt: str,
+    start: datetime | None,
+    end: datetime | None,
+    role: str,
+    email: str,
+    identified: bool = False,
+) -> tuple[bytes, str, str]:
+    """Archivo del historial (contenido, tipo MIME, nombre). Mismas comprobaciones de acceso y
+    de rango que el historial; los datos personales solo se incluyen si `identified` y es admin."""
+    data = history(patient_code, start, end, role, email)
+    if identified and role != "admin":
+        raise ExportForbiddenError(patient_code)
+    items = [{**m, "patient_code": patient_code} for m in data["items"]]
+    name = export.filename(patient_code, fmt, datetime.now(UTC).replace(tzinfo=None))
+    if fmt == "csv":
+        return export.build_csv(items), EXPORT_TYPES["csv"], name
+    personal = patients_service.get_patient(patient_code, role, email) if identified else None
+    content = export.build_xlsx(
+        code=patient_code,
+        age=data["age"],
+        sex=data["sex"],
+        height_cm=data["height_cm"],
+        items=items,
+        thresholds=data["thresholds"],
+        identified=personal,
+    )
+    return content, EXPORT_TYPES["xlsx"], name

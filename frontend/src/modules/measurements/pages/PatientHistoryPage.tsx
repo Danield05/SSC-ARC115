@@ -1,7 +1,8 @@
-import { Activity, ArrowLeft, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, ArrowLeft, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import { usePatient } from '../../patients/hooks/usePatient'
@@ -10,6 +11,7 @@ import MetricChart from '../components/MetricChart'
 import SummaryPanel from '../components/SummaryPanel'
 import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
+import { useExport } from '../hooks/useExport'
 import { useHistory } from '../hooks/useHistory'
 import { useSummary } from '../hooks/useSummary'
 import { formatDateTime, formatNumber, paddedDomain, spo2OutOfRange, tempOutOfRange } from '../lib/format'
@@ -28,6 +30,7 @@ export default function PatientHistoryPage() {
   const [days, setDays] = useState<RangeDays>(30)
   const { data, loading, error, notFound } = useHistory(code, days)
   const { data: summary } = useSummary(code)
+  const exporter = useExport(code, days)
 
   const charts = useMemo(() => {
     if (!data) return null
@@ -92,12 +95,33 @@ export default function PatientHistoryPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <RangeFilter value={days} onChange={setDays} />
-        {data && (
-          <p className="text-muted-foreground text-sm">
-            {items.length === 1 ? '1 medición' : `${items.length} mediciones`}
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {data && (
+            <p className="text-muted-foreground text-sm">
+              {items.length === 1 ? '1 medición' : `${items.length} mediciones`}
+            </p>
+          )}
+          <Button size="sm" disabled={exporter.busy !== null} onClick={() => exporter.download('xlsx')}>
+            <FileSpreadsheet className="size-4" />
+            {exporter.busy === 'xlsx' ? 'Preparando…' : 'Descargar Excel'}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={exporter.busy !== null}
+            onClick={() => exporter.download('csv')}
+          >
+            <Download className="size-4" />
+            {exporter.busy === 'csv' ? 'Preparando…' : 'CSV'}
+          </Button>
+        </div>
       </div>
+
+      {exporter.error && (
+        <Alert variant="destructive">
+          <AlertDescription>{exporter.error}</AlertDescription>
+        </Alert>
+      )}
 
       {data && items.length === 0 && !loading && (
         <Alert>
