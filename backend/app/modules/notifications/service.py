@@ -51,6 +51,13 @@ def send_invitation(to: str, name: str, role_label: str, temp_password: str) -> 
     send_email(to, subject, text, html)
 
 
+def send_batch_report(to: str, device_name: str, items: list[dict], thresholds: dict) -> None:
+    subject, text, html = templates.measurement_batch(
+        device_name, items, thresholds, get_settings().allowed_origin
+    )
+    send_email(to, subject, text, html)
+
+
 def send_password_reset(to: str, name: str, temp_password: str, minutes: int) -> None:
     subject, text, html = templates.password_reset(
         name, temp_password, minutes, get_settings().allowed_origin

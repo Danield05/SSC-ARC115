@@ -9,12 +9,12 @@ Prototipo que mide **temperatura corporal, oximetría y pulso, y peso**, guarda 
 ## ⚙️ Cómo funciona
 
 ```
-ESP32 (sensores) → microSD (cola local) → HTTPS + JSON → API Gateway + Lambda → DynamoDB
+ESP32 (sensores) → memoria flash interna (cola local) → HTTPS + JSON → API Gateway + Lambda → DynamoDB
                                                                     └→ correo al promotor
 Frontend web ── consulta ──► la misma API (historial y gráficas por paciente)
 ```
 
-El dispositivo trabaja sin internet: guarda todo en la microSD y sincroniza el lote pendiente cuando vuelve el Wi-Fi, sin duplicar registros.
+El dispositivo trabaja sin internet: guarda todo en su memoria interna y sincroniza el lote pendiente cuando vuelve el Wi-Fi, sin duplicar registros.
 
 ## 🗂️ Estructura del repositorio
 
@@ -29,7 +29,7 @@ Cada módulo del backend y del frontend se organiza por funcionalidad (dispositi
 
 ## 🧰 Tecnologías
 
-ESP32 · MAX30205 (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · microSD · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
+ESP32 · MLX90614 (temperatura infrarroja) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
 
 ## 📊 Estado
 
