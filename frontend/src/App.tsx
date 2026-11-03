@@ -9,6 +9,7 @@ import LoginPage from './modules/auth/pages/LoginPage'
 import DashboardPage from './modules/dashboard/pages/DashboardPage'
 import LandingPage from './modules/landing/pages/LandingPage'
 import PatientHistoryPage from './modules/measurements/pages/PatientHistoryPage'
+import PatientMonitorPage from './modules/measurements/pages/PatientMonitorPage'
 import PatientsPage from './modules/patients/pages/PatientsPage'
 import Layout from './shared/components/Layout'
 
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="patients" element={<PatientsPage />} />
             <Route path="patients/:code" element={<PatientHistoryPage />} />
+            <Route path="patients/:code/monitor" element={<PatientMonitorPage />} />
             <Route
               path="admin/devices"
               element={
