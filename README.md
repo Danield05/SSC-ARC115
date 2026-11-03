@@ -142,7 +142,7 @@ En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro
 
 ### 🔢 Códigos automáticos
 
-- **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar solo el nombre es obligatorio; también se pueden guardar DUI, edad, teléfono, correo y dirección. El dispositivo solo guarda el código.
+- **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar son obligatorios el nombre, la edad y el sexo (M/F, para calcular la categoría del IMC); también se pueden guardar estatura, DUI, teléfono, correo y dirección. El dispositivo solo guarda el código.
 - **Dispositivos:** el sistema asigna el identificador (`ESP32-GP03-01`, `-02`…) y genera la clave; el identificador se copia al `secrets.h` del firmware junto con la clave.
 
 ### 🔍 Consultar los datos

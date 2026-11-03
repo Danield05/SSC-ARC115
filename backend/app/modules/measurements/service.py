@@ -10,6 +10,7 @@ from app.modules.measurements import repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
 from app.modules.patients import repository as patients_repository
 from app.modules.patients import service as patients_service
+from app.modules.patients.bmi import bmi, bmi_category
 
 
 class InvalidDeviceKeyError(Exception):
@@ -89,6 +90,15 @@ class InvalidRangeError(Exception):
     """`from` es posterior a `to`."""
 
 
+def _with_bmi(measurement: dict, patient: dict) -> dict:
+    value = bmi(measurement["weight_kg"], patient["height_cm"])
+    return {
+        **measurement,
+        "bmi": value,
+        "bmi_category": bmi_category(value, patient["age"], patient["sex"]),
+    }
+
+
 def history(
     patient_code: str,
     start: datetime | None,
@@ -97,13 +107,17 @@ def history(
     email: str,
 ) -> dict:
     """Mediciones de un paciente en un rango. Lanza PatientNotFoundError si el rol no lo ve."""
-    patients_service.get_patient(patient_code, role, email)
+    patient = patients_service.get_patient(patient_code, role, email)
     start_ts = _iso_utc(start) if start else _FIRST_TS
     end_ts = _iso_utc(end) if end else _LAST_TS
     if start_ts > end_ts:
         raise InvalidRangeError(patient_code)
+    measurements = repository.list_measurements(patient_code, start_ts, end_ts, MAX_HISTORY)
     return {
         "patient_code": patient_code,
         "thresholds": thresholds(),
-        "items": repository.list_measurements(patient_code, start_ts, end_ts, MAX_HISTORY),
+        "height_cm": patient["height_cm"],
+        "sex": patient["sex"],
+        "age": patient["age"],
+        "items": [_with_bmi(m, patient) for m in measurements],
     }

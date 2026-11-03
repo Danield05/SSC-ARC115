@@ -79,7 +79,7 @@ def test_alert_is_recalculated_by_the_server(client, admin, send):
 
 
 def test_empty_history_for_a_patient_without_measurements(client, admin):
-    client.post("/patients", json={"name": "Sin datos"}, headers=admin)
+    client.post("/patients", json={"name": "Sin datos", "age": 30, "sex": "F"}, headers=admin)
     r = _history(client, admin)
     assert r.status_code == 200
     assert r.json()["items"] == []
@@ -114,7 +114,9 @@ def test_promoter_only_sees_history_of_own_patients(client, admin, make_user, se
     # otro promotor no puede ver ese historial: responde como si no existiera
     assert _history(client, otro).status_code == 404
     # un paciente que el otro promotor registró es suyo
-    mine = client.post("/patients", json={"name": "Mio"}, headers=otro).json()["patient_code"]
+    mine = client.post(
+        "/patients", json={"name": "Mio", "age": 30, "sex": "F"}, headers=otro
+    ).json()["patient_code"]
     assert _history(client, otro, code=mine).status_code == 200
     assert _history(client, promo, code=mine).status_code == 404
 
@@ -126,3 +128,43 @@ def test_get_single_patient_respects_visibility(client, admin, make_user, send):
     assert client.get("/patients/P-0001", headers=promo).json()["patient_code"] == "P-0001"
     assert client.get("/patients/P-0001", headers=otro).status_code == 404
     assert client.get("/patients/%23counter", headers=admin).status_code == 404
+
+
+def test_history_includes_bmi_per_measurement(client, admin, send):
+    client.post(
+        "/patients",
+        json={"name": "Ana", "age": 40, "sex": "F", "height_cm": 170},
+        headers=admin,
+    )
+    send(_record("P-0001", 1), _record("P-0001", 20))  # 71 kg y 90 kg
+    body = _history(client, admin).json()
+    assert (body["height_cm"], body["sex"], body["age"]) == (170, "F", 40)
+    assert [i["bmi"] for i in body["items"]] == [24.6, 31.1]
+
+
+def test_history_without_height_has_no_bmi(client, admin, send):
+    client.post("/patients", json={"name": "Ana", "age": 30, "sex": "F"}, headers=admin)
+    send(_record("P-0001", 1))
+    body = _history(client, admin).json()
+    assert body["height_cm"] is None
+    assert body["items"][0]["bmi"] is None
+
+
+def test_history_bmi_category_for_a_child_uses_who_tables(client, admin, send):
+    client.post(
+        "/patients",
+        json={"name": "Nino", "age": 10, "sex": "M", "height_cm": 140},
+        headers=admin,
+    )
+    send(_record("P-0001", 1))  # 71 kg y 140 cm -> IMC 36.2
+    item = _history(client, admin).json()["items"][0]
+    assert item["bmi"] == 36.2
+    assert item["bmi_category"] == "Obesidad"
+
+
+def test_history_adult_category_and_missing_data(client, admin, send):
+    client.post(
+        "/patients", json={"name": "Ana", "age": 40, "sex": "F", "height_cm": 170}, headers=admin
+    )
+    send(_record("P-0001", 1))
+    assert _history(client, admin).json()["items"][0]["bmi_category"] == "Normal"

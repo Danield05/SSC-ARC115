@@ -8,6 +8,10 @@ export interface Measurement {
   spo2: number
   bpm: number
   alert: boolean
+  /** IMC calculado con el peso de esta medición; null si el paciente no tiene estatura. */
+  bmi: number | null
+  /** Categoría de la OMS según edad y sexo; null si no se puede clasificar. */
+  bmi_category: string | null
 }
 
 /** Umbrales de alerta del servidor; el frontend solo los dibuja. */
@@ -20,6 +24,9 @@ export interface Thresholds {
 export interface History {
   patient_code: string
   thresholds: Thresholds
+  height_cm: number | null
+  sex: string
+  age: number | null
   items: Measurement[]
 }
 

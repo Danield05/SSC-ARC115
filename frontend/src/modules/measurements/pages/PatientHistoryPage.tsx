@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, ArrowLeft, Ruler, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -65,6 +65,14 @@ export default function PatientHistoryPage() {
   const items = data?.items ?? []
   const latest = items.at(-1)
   const thresholds = data?.thresholds
+  const bmiHint = !data
+    ? ''
+    : latest?.bmi == null
+      ? 'Registra la estatura en la ficha del paciente'
+      : (latest.bmi_category ??
+        (data.age == null || !data.sex
+          ? 'Completa la edad y el sexo en la ficha para ver la categoría'
+          : 'Categoría no disponible para menores de 5 años'))
   const title = patient?.name || `Paciente ${code}`
   const details = [code, patient?.age != null ? `${patient.age} años` : '', latest ? `última medición ${formatDateTime(latest.ts)}` : '']
     .filter(Boolean)
@@ -106,7 +114,7 @@ export default function PatientHistoryPage() {
       )}
 
       {latest && thresholds && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard
             title="Temperatura"
             value={`${formatNumber(latest.temp_c, 1)} °C`}
@@ -123,6 +131,12 @@ export default function PatientHistoryPage() {
           />
           <StatCard title="Pulso" value={`${latest.bpm} lpm`} hint="Última medición" icon={HeartPulse} />
           <StatCard title="Peso" value={`${formatNumber(latest.weight_kg, 1)} kg`} hint="Última medición" icon={Scale} />
+          <StatCard
+            title="IMC"
+            value={latest.bmi == null ? '—' : formatNumber(latest.bmi, 1)}
+            hint={bmiHint}
+            icon={Ruler}
+          />
         </div>
       )}
 
