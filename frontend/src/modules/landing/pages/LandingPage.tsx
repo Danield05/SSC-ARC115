@@ -30,8 +30,8 @@ const MEASURES: { icon: LucideIcon; title: string; sensor: string; text: string 
   {
     icon: Thermometer,
     title: 'Temperatura corporal',
-    sensor: 'Sensor MAX30205',
-    text: 'Lectura digital precisa. Avisa cuando la temperatura es de 35 °C o menos, o de 38 °C o más.',
+    sensor: 'Sensor MLX90614',
+    text: 'Infrarrojo, sin contacto: mide la temperatura de la piel. Avisa cuando es de 35 °C o menos, o de 38 °C o más.',
   },
   {
     icon: Activity,
@@ -56,7 +56,7 @@ const STEPS: { icon: LucideIcon; title: string; text: string }[] = [
   {
     icon: HardDrive,
     title: 'Guarda',
-    text: 'Cada medición queda en la tarjeta microSD del equipo, haya o no internet. Nada se pierde.',
+    text: 'Cada medición queda en la memoria interna del equipo, haya o no internet. Nada se pierde.',
   },
   {
     icon: Cloud,
