@@ -34,7 +34,11 @@ def test_duplicate_batch_sends_no_mail(client, device, outbox):  # noqa: F811
 
 
 def test_mail_never_contains_patient_name(client, admin, device, outbox):  # noqa: F811
-    client.post("/patients", json={"name": "Zacarías Fantasma", "dui": "01234567-8"}, headers=admin)
+    client.post(
+        "/patients",
+        json={"name": "Zacarías Fantasma", "age": 30, "sex": "F", "dui": "01234567-8"},
+        headers=admin,
+    )
     code = "P-0001"
     client.post("/measurements", json=batch(record(1, patient_code=code, spo2=90)), headers=device)
     mail = outbox[0]

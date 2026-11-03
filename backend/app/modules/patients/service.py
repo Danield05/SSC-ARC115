@@ -1,6 +1,7 @@
 """Reglas de negocio del módulo patients."""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from app.modules.devices import repository as devices_repository
 from app.modules.patients import repository
@@ -22,10 +23,19 @@ def to_public(patient: dict) -> dict:
         "email": patient.get("email", ""),
         "phone": patient.get("phone", ""),
         "address": patient.get("address", ""),
+        "sex": patient.get("sex", ""),
+        "height_cm": float(patient["height_cm"]) if patient.get("height_cm") is not None else None,
         "first_seen": patient.get("first_seen", ""),
         "last_seen": patient.get("last_seen", ""),
         "device_ids": sorted(patient.get("device_ids", [])),
     }
+
+
+def _store_value(field: str, value):
+    """boto3 no acepta float: la estatura se guarda como Decimal con un decimal."""
+    if field == "height_cm":
+        return Decimal(str(round(float(value), 1)))
+    return value
 
 
 def _my_device_ids(email: str) -> set[str]:
@@ -66,7 +76,7 @@ def create_patient(data: dict, email: str) -> dict:
     Si el número ya está tomado (el dispositivo pudo haber enviado ese código antes), se pasa
     al siguiente.
     """
-    fields = {k: v for k, v in data.items() if v not in (None, "")}
+    fields = {k: _store_value(k, v) for k, v in data.items() if v not in (None, "")}
     for _ in range(MAX_CODE_ATTEMPTS):
         item = {
             **fields,
@@ -94,7 +104,7 @@ def update_patient(patient_code: str, changes: dict, role: str, email: str) -> d
         elif value in (None, ""):
             to_remove.append(field)
         else:
-            to_set[field] = value
+            to_set[field] = _store_value(field, value)
     updated = repository.update_patient(patient_code, to_set, tuple(to_remove))
     if updated is None:
         raise PatientNotFoundError(patient_code)
