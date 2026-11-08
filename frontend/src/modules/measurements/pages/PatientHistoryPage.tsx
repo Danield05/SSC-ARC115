@@ -5,6 +5,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
+import VitalInfoDialog from '@/shared/components/VitalInfoDialog'
+import type { VitalKey } from '@/shared/vitals/vitalInfo'
 import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
@@ -32,6 +34,13 @@ export default function PatientHistoryPage() {
   const { data, loading, error, notFound } = useHistory(code, days)
   const { data: summary } = useSummary(code)
   const exporter = useExport(code, days)
+  const [infoVital, setInfoVital] = useState<VitalKey>('weight')
+  const [infoOpen, setInfoOpen] = useState(false)
+
+  function showInfo(key: VitalKey) {
+    setInfoVital(key)
+    setInfoOpen(true)
+  }
 
   const charts = useMemo(() => {
     if (!data) return null
@@ -145,6 +154,7 @@ export default function PatientHistoryPage() {
             hint={tempOutOfRange(latest.temp_c, thresholds) ? 'Fuera de rango' : 'Dentro del rango'}
             icon={Thermometer}
             alert={tempOutOfRange(latest.temp_c, thresholds)}
+            onInfo={() => showInfo('temperature')}
           />
           <StatCard
             title="Oxigenación (SpO₂)"
@@ -152,9 +162,16 @@ export default function PatientHistoryPage() {
             hint={spo2OutOfRange(latest.spo2, thresholds) ? 'Fuera de rango' : 'Dentro del rango'}
             icon={Activity}
             alert={spo2OutOfRange(latest.spo2, thresholds)}
+            onInfo={() => showInfo('spo2')}
           />
           <StatCard title="Pulso" value={`${latest.bpm} lpm`} hint="Última medición" icon={HeartPulse} />
-          <StatCard title="Peso" value={`${formatNumber(latest.weight_kg, 1)} kg`} hint="Última medición" icon={Scale} />
+          <StatCard
+            title="Peso"
+            value={`${formatNumber(latest.weight_kg, 1)} kg`}
+            hint="Última medición"
+            icon={Scale}
+            onInfo={() => showInfo('weight')}
+          />
         </div>
       )}
 
@@ -199,6 +216,8 @@ export default function PatientHistoryPage() {
       )}
 
       {items.length > 0 && thresholds && <MeasurementsTable items={items} thresholds={thresholds} />}
+
+      <VitalInfoDialog vital={infoVital} open={infoOpen} onOpenChange={setInfoOpen} thresholds={thresholds} />
     </>
   )
 }

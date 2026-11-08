@@ -2,19 +2,21 @@
 // Nada de esto es secreto. Las credenciales van en secrets.h (ver secrets.example.h).
 #pragma once
 
-// ───────────── Pines (CONFIRMAR con el prototipo en placa perforada) ─────────────
+// ───────────── Pines (cableado del prototipo, tomado de codigo.txt el 7-nov-2026) ─────────────
 // Reglas del ESP32: no usar GPIO 6 a 11 (flash); 34 a 39 son solo entrada;
-// cuidado con 0, 2, 12 y 15 (arranque).
+// cuidado con 0, 2, 12 y 15 (arranque). El LED verde en GPIO12 funciona si va a GND con su
+// resistencia; si el equipo no arranca, no debe haber nada que lleve ese pin a 3.3 V.
 #define PIN_I2C_SDA 21     // OLED 0x3C, MAX30102 0x57, MLX90614 0x5A
 #define PIN_I2C_SCL 22
-#define PIN_HX711_DT 32    // alimentar el HX711 a 3.3 V
-#define PIN_HX711_SCK 33
-#define PIN_LED_GREEN 25
-#define PIN_LED_YELLOW 26
-#define PIN_LED_RED 27
-#define PIN_BUZZER 13
-#define PIN_BTN_NEXT 19    // botón 1: siguiente (pulsación larga: tara de la báscula)
-#define PIN_BTN_OK 14      // botón 2: aceptar (pulsación larga: cancelar)
+#define PIN_HX711_DT 18    // alimentar el HX711 a 3.3 V
+#define PIN_HX711_SCK 19
+#define PIN_LED_GREEN 12
+#define PIN_LED_YELLOW 14
+#define PIN_LED_RED 13
+#define PIN_BUZZER 27
+#define PIN_BTN_NEXT 4     // botón 1: siguiente (pulsación larga: tara de la báscula)
+#define PIN_BTN_OK 26      // botón 2: aceptar (pulsación larga: cancelar). PROVISIONAL: el prototipo
+                           // solo tiene un botón; cablear el segundo a GPIO26 y GND.
 
 #define I2C_CLOCK_HZ 100000  // el MLX90614 usa SMBus: 100 kHz
 #define OLED_ADDRESS 0x3C

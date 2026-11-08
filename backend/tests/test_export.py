@@ -179,7 +179,14 @@ def test_dictionary_has_the_four_variables_and_thresholds(client, admin, data):
 
 
 def test_child_category_is_written_as_text(client, admin, send):
-    body = {"name": "Nino", "age": 10, "sex": "M", "height_cm": 140}
+    body = {
+        "name": "Nino",
+        "age": 10,
+        "sex": "M",
+        "height_cm": 140,
+        "guardian_name": "Madre",
+        "guardian_dui": "01234567-8",
+    }
     client.post("/patients", json=body, headers=admin)
     send(rec(1, weight=71.0))
     s = workbook(export(client, admin))["Resumen"]

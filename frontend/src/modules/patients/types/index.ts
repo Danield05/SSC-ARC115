@@ -2,6 +2,9 @@ export interface Patient {
   patient_code: string
   name: string
   dui: string
+  /** Solo para menores de 18 años. */
+  guardian_name: string
+  guardian_dui: string
   age: number | null
   email: string
   phone: string
@@ -20,6 +23,8 @@ export interface NewPatient {
   age: number
   sex: string
   dui?: string
+  guardian_name?: string
+  guardian_dui?: string
   email?: string
   phone?: string
   address?: string
@@ -30,6 +35,8 @@ export interface NewPatient {
 export interface PatientChanges {
   name: string
   dui: string
+  guardian_name: string
+  guardian_dui: string
   /** La edad y el sexo no se pueden borrar. */
   age: number
   email: string

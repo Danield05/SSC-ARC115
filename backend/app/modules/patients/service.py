@@ -19,6 +19,8 @@ def to_public(patient: dict) -> dict:
         "patient_code": patient["patient_code"],
         "name": patient.get("name", ""),
         "dui": patient.get("dui", ""),
+        "guardian_name": patient.get("guardian_name", ""),
+        "guardian_dui": patient.get("guardian_dui", ""),
         "age": int(patient["age"]) if patient.get("age") is not None else None,
         "email": patient.get("email", ""),
         "phone": patient.get("phone", ""),
