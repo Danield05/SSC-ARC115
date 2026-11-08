@@ -153,7 +153,14 @@ def test_history_without_height_has_no_bmi(client, admin, send):
 def test_history_bmi_category_for_a_child_uses_who_tables(client, admin, send):
     client.post(
         "/patients",
-        json={"name": "Nino", "age": 10, "sex": "M", "height_cm": 140},
+        json={
+            "name": "Nino",
+            "age": 10,
+            "sex": "M",
+            "height_cm": 140,
+            "guardian_name": "Madre",
+            "guardian_dui": "01234567-8",
+        },
         headers=admin,
     )
     send(_record("P-0001", 1))  # 71 kg y 140 cm -> IMC 36.2

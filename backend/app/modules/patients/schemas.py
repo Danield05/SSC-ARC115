@@ -22,6 +22,8 @@ Address = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200
 Age = Annotated[int, Field(ge=0, le=120)]
 Sex = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^[MF]$")]
 HeightCm = Annotated[float, Field(ge=50, le=250)]
+GuardianName = Annotated[str, StringConstraints(strip_whitespace=True, max_length=80)]
+ADULT_AGE = 18
 
 
 class PatientCreate(BaseModel):
@@ -31,10 +33,24 @@ class PatientCreate(BaseModel):
     age: Age
     sex: Sex
     dui: Dui | None = None
+    guardian_name: GuardianName | None = None
+    guardian_dui: Dui | None = None
     email: PatientEmail | None = None
     phone: Phone | None = None
     address: Address | None = None
     height_cm: HeightCm | None = None
+
+    @model_validator(mode="after")
+    def guardian_for_minors(self):
+        """Un menor de 18 años no tiene DUI: se registra el de su responsable."""
+        if self.age < ADULT_AGE:
+            if not self.guardian_name or not self.guardian_dui:
+                raise ValueError("Un menor de edad necesita nombre y DUI del responsable")
+            self.dui = None
+        else:
+            self.guardian_name = None
+            self.guardian_dui = None
+        return self
 
 
 class PatientUpdate(BaseModel):
@@ -42,6 +58,8 @@ class PatientUpdate(BaseModel):
 
     name: PatientName | None = None
     dui: Dui | None = None
+    guardian_name: GuardianName | None = None
+    guardian_dui: Dui | None = None
     age: Age | None = None
     email: PatientEmail | None = None
     phone: Phone | None = None
@@ -54,6 +72,13 @@ class PatientUpdate(BaseModel):
         for field in ("name", "age", "sex"):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"{field} no se puede borrar")
+        if self.age is not None and self.age < ADULT_AGE:
+            if not self.guardian_name or not self.guardian_dui:
+                raise ValueError("Un menor de edad necesita nombre y DUI del responsable")
+            self.dui = ""
+        elif self.age is not None:
+            self.guardian_name = ""
+            self.guardian_dui = ""
         return self
 
 
@@ -61,6 +86,8 @@ class PatientOut(BaseModel):
     patient_code: str
     name: str = ""
     dui: str = ""
+    guardian_name: str = ""
+    guardian_dui: str = ""
     age: int | None = None
     email: str = ""
     phone: str = ""
