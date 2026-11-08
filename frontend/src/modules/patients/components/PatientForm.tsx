@@ -24,6 +24,8 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
   const [name, setName] = useState(editing?.name ?? '')
   const [dui, setDui] = useState(editing?.dui ?? '')
   const [age, setAge] = useState(editing?.age != null ? String(editing.age) : '')
+  const [guardianName, setGuardianName] = useState(editing?.guardian_name ?? '')
+  const [guardianDui, setGuardianDui] = useState(editing?.guardian_dui ?? '')
   const [phone, setPhone] = useState(editing?.phone ?? '')
   const [email, setEmail] = useState(editing?.email ?? '')
   const [address, setAddress] = useState(editing?.address ?? '')
@@ -31,6 +33,10 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
   const [height, setHeight] = useState(editing?.height_cm != null ? String(editing.height_cm) : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  // El DUI solo aplica a mayores de edad (18 años o más).
+  const showDui = age !== '' && Number(age) >= 18
+  const isMinor = age !== '' && Number(age) < 18
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -41,12 +47,18 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
     setBusy(true)
     setError('')
     const parsedAge = Number(age)
+    const duiValue = parsedAge >= 18 ? dui.trim() : ''
+    const guardianNameValue = parsedAge < 18 ? guardianName.trim() : ''
+    const guardianDuiValue = parsedAge < 18 ? guardianDui.trim() : ''
     const parsedHeight = height.trim() === '' ? null : Number(height)
     try {
       if (editing) {
         await onUpdate(editing.patient_code, {
           name: name.trim(),
-          dui: dui.trim(),
+          // Un menor de 18 no puede tener DUI: se borra el que hubiera.
+          dui: duiValue,
+          guardian_name: guardianNameValue,
+          guardian_dui: guardianDuiValue,
           age: parsedAge,
           email: email.trim(),
           phone: phone.trim(),
@@ -59,7 +71,9 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
           name: name.trim(),
           age: parsedAge,
           sex,
-          ...(dui.trim() && { dui: dui.trim() }),
+          ...(duiValue && { dui: duiValue }),
+          ...(guardianNameValue && { guardian_name: guardianNameValue }),
+          ...(guardianDuiValue && { guardian_dui: guardianDuiValue }),
           ...(email.trim() && { email: email.trim() }),
           ...(phone.trim() && { phone: phone.trim() }),
           ...(address.trim() && { address: address.trim() }),
@@ -97,18 +111,6 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="patient-dui">DUI</Label>
-          <Input
-            id="patient-dui"
-            value={dui}
-            onChange={(e) => setDui(e.target.value)}
-            placeholder="01234567-8"
-            pattern="\d{8}-\d"
-            title="Ocho dígitos, guion y el dígito verificador (01234567-8)"
-            inputMode="numeric"
-          />
-        </div>
-        <div className="space-y-2">
           <Label htmlFor="patient-age">Edad</Label>
           <Input
             id="patient-age"
@@ -118,6 +120,74 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
             required
             value={age}
             onChange={(e) => setAge(e.target.value)}
+          />
+        </div>
+        {showDui && (
+          <div className="space-y-2">
+            <Label htmlFor="patient-dui">DUI</Label>
+            <Input
+              id="patient-dui"
+              value={dui}
+              onChange={(e) => setDui(e.target.value)}
+              placeholder="01234567-8"
+              pattern="\d{8}-\d"
+              title="Ocho dígitos, guion y el dígito verificador (01234567-8)"
+              inputMode="numeric"
+            />
+          </div>
+        )}
+        {isMinor && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="patient-guardian-name">Nombre del responsable</Label>
+              <Input
+                id="patient-guardian-name"
+                value={guardianName}
+                onChange={(e) => setGuardianName(e.target.value)}
+                maxLength={80}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="patient-guardian-dui">DUI del responsable</Label>
+              <Input
+                id="patient-guardian-dui"
+                value={guardianDui}
+                onChange={(e) => setGuardianDui(e.target.value)}
+                placeholder="01234567-8"
+                pattern="\d{8}-\d"
+                title="Ocho dígitos, guion y el dígito verificador (01234567-8)"
+                inputMode="numeric"
+                required
+              />
+            </div>
+          </>
+        )}
+        <div className="space-y-2">
+          <Label>Sexo</Label>
+          <Select items={SEX_OPTIONS} value={sex || null} onValueChange={(v) => v && setSex(v)}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Selecciona" />
+            </SelectTrigger>
+            <SelectContent>
+              {SEX_OPTIONS.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="patient-height">Estatura (cm)</Label>
+          <Input
+            id="patient-height"
+            type="number"
+            min={50}
+            max={250}
+            step={0.1}
+            value={height}
+            onChange={(e) => setHeight(e.target.value)}
           />
         </div>
         <div className="space-y-2">

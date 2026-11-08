@@ -245,3 +245,37 @@ def test_patient_created_by_device_has_no_age_or_sex(client, admin, device_key):
     assert (r["sex"], r["age"], r["height_cm"]) == ("", None, None)
     # se puede editar otro dato sin tener que mandar la edad ni el sexo
     assert client.patch("/patients/P-0002", json={"name": "Ana"}, headers=admin).status_code == 200
+
+
+def test_patch_age_switches_between_dui_and_guardian(client, admin):
+    code = client.post(
+        "/patients",
+        json={"name": "Luis", "age": 30, "sex": "M", "dui": "01234567-8"},
+        headers=admin,
+    ).json()["patient_code"]
+    # adulto -> menor: exige responsable y borra el DUI propio
+    assert client.patch(f"/patients/{code}", json={"age": 10}, headers=admin).status_code == 422
+    r = client.patch(
+        f"/patients/{code}",
+        json={"age": 10, "guardian_name": "Ana", "guardian_dui": "76543210-1"},
+        headers=admin,
+    )
+    assert r.status_code == 200, r.text
+    assert (r.json()["dui"], r.json()["guardian_name"]) == ("", "Ana")
+    # menor -> adulto: borra los datos del responsable
+    r = client.patch(f"/patients/{code}", json={"age": 20}, headers=admin)
+    assert r.status_code == 200, r.text
+    assert (r.json()["guardian_name"], r.json()["guardian_dui"]) == ("", "")
+
+
+def test_minor_requires_guardian_and_has_no_own_dui(client, admin):
+    base = {"name": "Nina", "age": 9, "sex": "F"}
+    assert client.post("/patients", json=base, headers=admin).status_code == 422
+    r = client.post(
+        "/patients",
+        json={**base, "dui": "01234567-8", "guardian_name": "Ana", "guardian_dui": "76543210-1"},
+        headers=admin,
+    )
+    assert r.status_code == 201, r.text
+    p = r.json()
+    assert (p["dui"], p["guardian_name"], p["guardian_dui"]) == ("", "Ana", "76543210-1")
