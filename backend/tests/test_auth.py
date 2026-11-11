@@ -235,3 +235,13 @@ def test_admin_cannot_deactivate_self(client, admin):
 def test_update_unknown_user(client, admin):
     r = client.patch("/users/nadie@example.com", json={"active": False}, headers=admin)
     assert r.status_code == 404
+
+
+def test_only_admin_edits_user_name(client, admin, make_user):
+    _, promoter = make_user("promo@example.com", "promoter")
+    denied = client.patch("/users/promo@example.com", json={"name": "Otro"}, headers=promoter)
+    assert denied.status_code == 403
+    r = client.patch("/users/promo@example.com", json={"name": "  Ana Pérez "}, headers=admin)
+    assert r.status_code == 200
+    assert r.json()["name"] == "Ana Pérez"
+    assert r.json()["role"] == "promoter"
