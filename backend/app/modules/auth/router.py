@@ -105,10 +105,20 @@ def resend_invite(email: str, _: CurrentUser = Depends(admin_only)):  # noqa: B0
 def update_user(email: str, body: UserUpdate, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
     try:
         return service.update_user(
-            email.lower(), body.active, body.role, admin.email, name=body.name
+            email.lower(), body.active, body.role, admin.email, name=body.name, new_email=body.email
         )
     except service.UserNotFoundError:
         raise _user_not_found() from None
+    except service.SelfEmailError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Tu propio correo lo cambia otro administrador"
+        ) from None
+    except service.UserExistsError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Ya existe un usuario con ese correo"
+        ) from None
+    except service.MailError:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, _MAIL_FAILED) from None
     except service.SelfChangeError:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "No puedes desactivar tu cuenta ni cambiar tu propio rol"

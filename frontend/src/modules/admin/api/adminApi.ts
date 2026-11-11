@@ -20,7 +20,7 @@ export const listUsers = () => apiFetch<User[]>('/users')
 export const createUser = (data: NewUser) =>
   apiFetch<User>('/users', { method: 'POST', ...jsonBody(data) })
 
-export const updateUser = (email: string, changes: { name?: string; active?: boolean; role?: Role }) =>
+export const updateUser = (email: string, changes: { name?: string; email?: string; active?: boolean; role?: Role }) =>
   apiFetch<User>(`/users/${encodeURIComponent(email)}`, { method: 'PATCH', ...jsonBody(changes) })
 
 export const resendInvite = (email: string) =>

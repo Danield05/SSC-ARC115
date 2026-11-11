@@ -8,8 +8,10 @@ from datetime import UTC, datetime, timedelta
 from app.core.config import get_settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.modules.auth import repository
+from app.modules.devices import repository as devices_repository
 from app.modules.notifications import service as notifications
 from app.modules.notifications.service import MailError
+from app.modules.patients import repository as patients_repository
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,10 @@ class UserExistsError(Exception):
 
 class UserNotFoundError(Exception):
     pass
+
+
+class SelfEmailError(Exception):
+    """El administrador intentó cambiar su propio correo (debe hacerlo otro administrador)."""
 
 
 class SelfChangeError(Exception):
@@ -168,9 +174,14 @@ def update_user(
     role: str | None,
     acting_email: str,
     name: str | None = None,
+    new_email: str | None = None,
 ) -> dict:
     if email == acting_email and (active is False or role is not None):
         raise SelfChangeError(email)
+    if new_email is not None and new_email != email:
+        if email == acting_email:
+            raise SelfEmailError(email)
+        email = change_email(email, new_email)
     changes = {}
     if name is not None:
         changes["name"] = name.strip()
@@ -182,6 +193,46 @@ def update_user(
     if user is None:
         raise UserNotFoundError(email)
     return to_public(user)
+
+
+def change_email(email: str, new_email: str) -> str:
+    """Cambia el correo (la llave de la tabla) de un usuario y le envía una invitación nueva.
+
+    Se crea el registro con el correo nuevo y una contraseña provisional, se avisa por correo y
+    solo entonces se borra el anterior; si el correo falla no cambia nada. Los dispositivos y los
+    pacientes ligados al correo viejo pasan al nuevo para que el promotor conserve su trabajo.
+    """
+    old = repository.get_user(email)
+    if old is None:
+        raise UserNotFoundError(email)
+    temp = generate_temp_password()
+    item = {
+        k: v
+        for k, v in old.items()
+        if k not in ("reset_hash", "reset_expires", "reset_requested_at")
+    }
+    item.update(
+        email=new_email,
+        password_hash=hash_password(temp),
+        must_change_password=True,
+    )
+    if not repository.create_user(item):
+        raise UserExistsError(new_email)
+    try:
+        notifications.send_invitation(
+            new_email, item.get("name", ""), ROLE_LABELS[item["role"]], temp
+        )
+    except MailError:
+        repository.delete_user(new_email)
+        raise
+    for device in devices_repository.list_devices():
+        if device.get("promoter_email") == email:
+            devices_repository.update_device(device["device_id"], {"promoter_email": new_email})
+    for patient in patients_repository.list_patients():
+        if patient.get("created_by") == email:
+            patients_repository.update_patient(patient["patient_code"], {"created_by": new_email})
+    repository.delete_user(email)
+    return new_email
 
 
 def request_password_reset(email: str) -> None:

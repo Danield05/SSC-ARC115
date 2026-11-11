@@ -175,7 +175,7 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Editar usuario</DialogTitle>
             <DialogDescription>
-              Cambia el nombre o el rol. El correo es su identificador y no se modifica.
+              Cambia el nombre, el correo o el rol.
             </DialogDescription>
           </DialogHeader>
           {editing && (
