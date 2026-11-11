@@ -245,3 +245,25 @@ def test_only_admin_edits_user_name(client, admin, make_user):
     assert r.status_code == 200
     assert r.json()["name"] == "Ana Pérez"
     assert r.json()["role"] == "promoter"
+
+
+def test_admin_changes_user_email_and_reinvites(client, admin, make_user, outbox):
+    make_user("promo@example.com", "promoter")
+    r = client.patch("/users/promo@example.com", json={"email": "nuevo@example.com"}, headers=admin)
+    assert r.status_code == 200
+    assert r.json()["email"] == "nuevo@example.com"
+    assert r.json()["must_change_password"] is True
+    assert outbox[-1]["to"] == "nuevo@example.com"
+    emails = [u["email"] for u in client.get("/users", headers=admin).json()]
+    assert "promo@example.com" not in emails
+    assert "nuevo@example.com" in emails
+
+
+def test_change_email_conflicts_and_self(client, admin, make_user):
+    make_user("a@example.com", "promoter")
+    make_user("b@example.com", "viewer")
+    dup = client.patch("/users/a@example.com", json={"email": "b@example.com"}, headers=admin)
+    assert dup.status_code == 409
+    me = client.get("/auth/me", headers=admin).json()["email"]
+    own = client.patch(f"/users/{me}", json={"email": "otro@example.com"}, headers=admin)
+    assert own.status_code == 400
