@@ -52,7 +52,7 @@ export function useUsers() {
     await reload()
   }
 
-  const update = async (email: string, changes: { name?: string; role?: Role }) => {
+  const update = async (email: string, changes: { name?: string; email?: string; role?: Role }) => {
     await api.updateUser(email, changes)
     await reload()
   }

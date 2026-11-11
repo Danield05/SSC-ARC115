@@ -16,7 +16,7 @@ interface Props {
   /** Quien edita su propia cuenta no puede cambiarse el rol. */
   isSelf?: boolean
   onCreate: (data: NewUser) => Promise<void>
-  onUpdate: (email: string, changes: { name?: string; role?: Role }) => Promise<void>
+  onUpdate: (email: string, changes: { name?: string; email?: string; role?: Role }) => Promise<void>
   onDone: () => void
 }
 
@@ -33,7 +33,12 @@ export default function UserForm({ editing, isSelf, onCreate, onUpdate, onDone }
     setError('')
     try {
       if (editing) {
-        await onUpdate(editing.email, { name: name.trim(), ...(!isSelf && { role }) })
+        const newEmail = email.trim().toLowerCase()
+        await onUpdate(editing.email, {
+          name: name.trim(),
+          ...(!isSelf && { role }),
+          ...(!isSelf && newEmail !== editing.email && { email: newEmail }),
+        })
       } else {
         await onCreate({ email: email.trim(), name: name.trim(), role })
       }
@@ -59,7 +64,7 @@ export default function UserForm({ editing, isSelf, onCreate, onUpdate, onDone }
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          disabled={!!editing}
+          disabled={isSelf}
         />
       </div>
       <div className="space-y-2">
@@ -82,6 +87,15 @@ export default function UserForm({ editing, isSelf, onCreate, onUpdate, onDone }
           </SelectContent>
         </Select>
       </div>
+      {editing && !isSelf && (
+        <p className="text-muted-foreground text-xs">
+          Si cambias el correo, la persona recibe una invitación nueva con contraseña provisional y debe
+          crear su contraseña otra vez. Sus dispositivos y pacientes pasan al correo nuevo.
+        </p>
+      )}
+      {editing && isSelf && (
+        <p className="text-muted-foreground text-xs">Tu propio correo y rol los cambia otro administrador.</p>
+      )}
       {!editing && (
         <p className="text-muted-foreground text-xs">
           El sistema genera una contraseña provisional y la envía a ese correo. Al entrar por primera vez, la
