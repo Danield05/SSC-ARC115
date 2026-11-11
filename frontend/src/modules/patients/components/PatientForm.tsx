@@ -191,33 +191,6 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
           />
         </div>
         <div className="space-y-2">
-          <Label>Sexo</Label>
-          <Select items={SEX_OPTIONS} value={sex || null} onValueChange={(v) => v && setSex(v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecciona" />
-            </SelectTrigger>
-            <SelectContent>
-              {SEX_OPTIONS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="patient-height">Estatura (cm)</Label>
-          <Input
-            id="patient-height"
-            type="number"
-            min={50}
-            max={250}
-            step={0.1}
-            value={height}
-            onChange={(e) => setHeight(e.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
           <Label htmlFor="patient-phone">Teléfono</Label>
           <Input
             id="patient-phone"
