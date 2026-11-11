@@ -12,6 +12,18 @@ const SEX_OPTIONS = [
   { value: 'F', label: 'F · Femenino' },
 ]
 
+/** Máscara del DUI: 8 dígitos, guion automático y dígito verificador (01234567-8). */
+function maskDui(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 9)
+  return digits.length > 8 ? `${digits.slice(0, 8)}-${digits.slice(8)}` : digits
+}
+
+/** Máscara del teléfono: 8 dígitos con guion automático (7000-1234). */
+function maskPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+  return digits.length > 4 ? `${digits.slice(0, 4)}-${digits.slice(4)}` : digits
+}
+
 interface Props {
   /** Paciente que se edita; sin él, el formulario registra uno nuevo. */
   editing?: Patient
@@ -128,7 +140,7 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
             <Input
               id="patient-dui"
               value={dui}
-              onChange={(e) => setDui(e.target.value)}
+              onChange={(e) => setDui(maskDui(e.target.value))}
               placeholder="01234567-8"
               pattern="\d{8}-\d"
               title="Ocho dígitos, guion y el dígito verificador (01234567-8)"
@@ -153,7 +165,7 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
               <Input
                 id="patient-guardian-dui"
                 value={guardianDui}
-                onChange={(e) => setGuardianDui(e.target.value)}
+                onChange={(e) => setGuardianDui(maskDui(e.target.value))}
                 placeholder="01234567-8"
                 pattern="\d{8}-\d"
                 title="Ocho dígitos, guion y el dígito verificador (01234567-8)"
@@ -196,10 +208,11 @@ export default function PatientForm({ editing, onCreate, onUpdate, onDone }: Pro
             id="patient-phone"
             type="tel"
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => setPhone(maskPhone(e.target.value))}
             placeholder="7000-1234"
-            pattern="[0-9+\-\s()]{7,20}"
-            title="Entre 7 y 20 caracteres: números, espacios, guiones, + o paréntesis"
+            pattern="\d{4}-\d{4}"
+            title="Ocho dígitos con guion (7000-1234)"
+            inputMode="numeric"
           />
         </div>
         <div className="space-y-2">
