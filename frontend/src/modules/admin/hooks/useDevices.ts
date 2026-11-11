@@ -47,7 +47,12 @@ export function useDevices() {
     await reload()
   }
 
+  const update = async (id: string, changes: { name?: string; promoter_email?: string }) => {
+    await api.updateDevice(id, changes)
+    await reload()
+  }
+
   const rotate = async (id: string) => (await api.rotateKey(id)).api_key
 
-  return { devices, loading, error, create, setActive, rotate }
+  return { devices, loading, error, create, update, setActive, rotate }
 }

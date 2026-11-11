@@ -52,9 +52,14 @@ export function useUsers() {
     await reload()
   }
 
+  const update = async (email: string, changes: { name?: string; role?: Role }) => {
+    await api.updateUser(email, changes)
+    await reload()
+  }
+
   const resend = async (email: string) => {
     await api.resendInvite(email)
   }
 
-  return { users, loading, error, create, setActive, setRole, resend }
+  return { users, loading, error, create, update, setActive, setRole, resend }
 }

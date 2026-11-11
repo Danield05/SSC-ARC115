@@ -1,4 +1,4 @@
-import { KeyRound, Plus } from 'lucide-react'
+import { KeyRound, Pencil, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -12,14 +12,16 @@ import { useAuth } from '../../auth/hooks/useAuth'
 import ApiKeyNotice from '../components/ApiKeyNotice'
 import DeviceForm from '../components/DeviceForm'
 import { useDevices } from '../hooks/useDevices'
+import type { Device } from '../types'
 
 export default function DevicesPage() {
   const { user } = useAuth()
   const canEdit = user?.role === 'admin'
-  const { devices, loading, error, create, setActive, rotate } = useDevices()
+  const { devices, loading, error, create, update, setActive, rotate } = useDevices()
   const [shown, setShown] = useState<{ id: string; key: string } | null>(null)
   const [actionError, setActionError] = useState('')
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<Device | null>(null)
 
   async function run(action: () => Promise<void>) {
     setActionError('')
@@ -96,6 +98,10 @@ export default function DevicesPage() {
                             onCheckedChange={(checked) => run(() => setActive(d.device_id, checked))}
                             aria-label={`${d.active ? 'Desactivar' : 'Activar'} ${d.device_id}`}
                           />
+                          <Button variant="outline" size="sm" onClick={() => setEditing(d)}>
+                            <Pencil />
+                            Editar
+                          </Button>
                           <Button variant="outline" size="sm" onClick={() => onRotate(d.device_id)}>
                             <KeyRound />
                             Nueva clave
@@ -124,8 +130,29 @@ export default function DevicesPage() {
             onCreate={async (data) => {
               setShown(await create(data))
             }}
+            onUpdate={update}
             onDone={() => setOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar dispositivo</DialogTitle>
+            <DialogDescription>
+              Cambia el nombre o el correo del promotor de {editing?.device_id}. La clave no se modifica.
+            </DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <DeviceForm
+              key={editing.device_id}
+              editing={editing}
+              onCreate={async () => {}}
+              onUpdate={update}
+              onDone={() => setEditing(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

@@ -1,4 +1,4 @@
-import { MailCheck, Plus, Send } from 'lucide-react'
+import { MailCheck, Pencil, Plus, Send } from 'lucide-react'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -11,17 +11,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { ROLE_OPTIONS } from '../../auth/types'
-import type { Role } from '../../auth/types'
+import type { Role, User } from '../../auth/types'
 import UserForm from '../components/UserForm'
 import { useUsers } from '../hooks/useUsers'
 import type { NewUser } from '../types'
 
 export default function UsersPage() {
   const { user: me } = useAuth()
-  const { users, loading, error, create, setActive, setRole, resend } = useUsers()
+  const { users, loading, error, create, update, setActive, setRole, resend } = useUsers()
   const [actionError, setActionError] = useState('')
   const [notice, setNotice] = useState('')
   const [open, setOpen] = useState(false)
+  const [editing, setEditing] = useState<User | null>(null)
 
   async function run(action: () => Promise<void>, success?: string) {
     setActionError('')
@@ -124,27 +125,31 @@ export default function UsersPage() {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        {!isMe && (
-                          <div className="flex items-center justify-end gap-3">
-                            {u.active && u.must_change_password && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  run(() => resend(u.email), `Se envió una contraseña provisional nueva a ${u.email}.`)
-                                }
-                              >
-                                <Send />
-                                Reenviar
-                              </Button>
-                            )}
+                        <div className="flex items-center justify-end gap-3">
+                          <Button variant="outline" size="sm" onClick={() => setEditing(u)}>
+                            <Pencil />
+                            Editar
+                          </Button>
+                          {!isMe && u.active && u.must_change_password && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                run(() => resend(u.email), `Se envió una contraseña provisional nueva a ${u.email}.`)
+                              }
+                            >
+                              <Send />
+                              Reenviar
+                            </Button>
+                          )}
+                          {!isMe && (
                             <Switch
                               checked={u.active}
                               onCheckedChange={(checked) => run(() => setActive(u.email, checked))}
                               aria-label={`${u.active ? 'Desactivar' : 'Activar'} a ${u.email}`}
                             />
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   )
@@ -161,7 +166,28 @@ export default function UsersPage() {
             <DialogTitle>Invitar usuario</DialogTitle>
             <DialogDescription>Elige su rol: es lo que podrá ver y hacer dentro del sistema.</DialogDescription>
           </DialogHeader>
-          <UserForm onCreate={invite} onDone={() => setOpen(false)} />
+          <UserForm onCreate={invite} onUpdate={update} onDone={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar usuario</DialogTitle>
+            <DialogDescription>
+              Cambia el nombre o el rol. El correo es su identificador y no se modifica.
+            </DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <UserForm
+              key={editing.email}
+              editing={editing}
+              isSelf={editing.email === me?.email}
+              onCreate={async () => {}}
+              onUpdate={update}
+              onDone={() => setEditing(null)}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>
