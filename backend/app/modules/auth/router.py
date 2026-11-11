@@ -104,7 +104,9 @@ def resend_invite(email: str, _: CurrentUser = Depends(admin_only)):  # noqa: B0
 @router.patch("/users/{email}", response_model=UserOut)
 def update_user(email: str, body: UserUpdate, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
     try:
-        return service.update_user(email.lower(), body.active, body.role, admin.email)
+        return service.update_user(
+            email.lower(), body.active, body.role, admin.email, name=body.name
+        )
     except service.UserNotFoundError:
         raise _user_not_found() from None
     except service.SelfChangeError:

@@ -4,16 +4,19 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import type { NewDevice } from '../types'
+import type { Device, NewDevice } from '../types'
 
 interface Props {
+  /** Dispositivo que se edita; sin él, el formulario registra uno nuevo. */
+  editing?: Device
   onCreate: (data: NewDevice) => Promise<void>
+  onUpdate: (id: string, changes: NewDevice) => Promise<void>
   onDone: () => void
 }
 
-export default function DeviceForm({ onCreate, onDone }: Props) {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+export default function DeviceForm({ editing, onCreate, onUpdate, onDone }: Props) {
+  const [name, setName] = useState(editing?.name ?? '')
+  const [email, setEmail] = useState(editing?.promoter_email ?? '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -22,10 +25,12 @@ export default function DeviceForm({ onCreate, onDone }: Props) {
     setBusy(true)
     setError('')
     try {
-      await onCreate({ name: name.trim(), promoter_email: email })
+      const data = { name: name.trim(), promoter_email: email.trim() }
+      if (editing) await onUpdate(editing.device_id, data)
+      else await onCreate(data)
       onDone()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo registrar el dispositivo.')
+      setError(err instanceof Error ? err.message : 'No se pudo guardar el dispositivo.')
     } finally {
       setBusy(false)
     }
@@ -58,7 +63,7 @@ export default function DeviceForm({ onCreate, onDone }: Props) {
         </Alert>
       )}
       <Button type="submit" className="w-full" disabled={busy}>
-        {busy ? 'Registrando…' : 'Registrar'}
+        {busy ? 'Guardando…' : editing ? 'Guardar cambios' : 'Registrar'}
       </Button>
     </form>
   )

@@ -162,10 +162,18 @@ def list_users() -> list[dict]:
     return sorted((to_public(u) for u in repository.list_users()), key=lambda u: u["email"])
 
 
-def update_user(email: str, active: bool | None, role: str | None, acting_email: str) -> dict:
+def update_user(
+    email: str,
+    active: bool | None,
+    role: str | None,
+    acting_email: str,
+    name: str | None = None,
+) -> dict:
     if email == acting_email and (active is False or role is not None):
         raise SelfChangeError(email)
     changes = {}
+    if name is not None:
+        changes["name"] = name.strip()
     if active is not None:
         changes["active"] = active
     if role is not None:

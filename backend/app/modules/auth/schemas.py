@@ -37,6 +37,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=80)
     active: bool | None = None
     role: Role | None = None
 
