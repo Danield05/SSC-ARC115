@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card'
 import { useDevices } from '@/modules/admin/hooks/useDevices'
 import { useUsers } from '@/modules/admin/hooks/useUsers'
 import { useAuth } from '@/modules/auth/hooks/useAuth'
+import { usePatients } from '@/modules/patients/hooks/usePatients'
 import { ROLE_LABELS } from '@/modules/auth/types'
 import { assetUrl } from '@/lib/utils'
 import PageHeader from '@/shared/components/PageHeader'
@@ -25,6 +26,7 @@ function UsersStat() {
 export default function DashboardPage() {
   const { user } = useAuth()
   const { devices, loading } = useDevices()
+  const { patients, loading: loadingPatients } = usePatients()
   if (!user) return null
   const active = devices.filter((d) => d.active).length
 
@@ -43,7 +45,12 @@ export default function DashboardPage() {
           icon={Cpu}
         />
         {user.role === 'admin' && <UsersStat />}
-        <StatCard title="Pacientes" value="—" hint="Aparecerán con la primera sincronización" icon={UsersRound} />
+        <StatCard
+          title="Pacientes"
+          value={loadingPatients ? '…' : String(patients.length)}
+          hint={patients.length === 0 ? 'Registra el primero en la sección Pacientes' : 'Registrados en el sistema'}
+          icon={UsersRound}
+        />
         <StatCard title="Alertas" value="—" hint="Sin mediciones todavía" icon={BellRing} />
       </div>
 
