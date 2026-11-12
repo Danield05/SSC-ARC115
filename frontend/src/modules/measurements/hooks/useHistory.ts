@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../../shared/api/client'
 import * as api from '../api/measurementsApi'
+import { onMeasurementReceived } from '../lib/events'
 import type { History, RangeDays } from '../types'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -15,7 +16,11 @@ export function useHistory(code: string, days: RangeDays) {
   const [notFound, setNotFound] = useState(false)
   // Última consulta terminada; `loading` es que la consulta actual aún no terminó.
   const [doneKey, setDoneKey] = useState('')
-  const key = `${code}|${days}`
+  // Sube cada vez que llega una medición nueva (orden «Medir» completada) para pedir los datos otra vez.
+  const [reloads, setReloads] = useState(0)
+  const key = `${code}|${days}|${reloads}`
+
+  useEffect(() => onMeasurementReceived(() => setReloads((n) => n + 1)), [])
 
   useEffect(() => {
     let cancelled = false

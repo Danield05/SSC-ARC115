@@ -3,12 +3,43 @@ import { Card } from '@/components/ui/card'
 import { useDevices } from '@/modules/admin/hooks/useDevices'
 import { useUsers } from '@/modules/admin/hooks/useUsers'
 import { useAuth } from '@/modules/auth/hooks/useAuth'
+import { useAlertsSummary } from '@/modules/measurements/hooks/useAlertsSummary'
 import { usePatients } from '@/modules/patients/hooks/usePatients'
 import { ROLE_LABELS } from '@/modules/auth/types'
 import { assetUrl } from '@/lib/utils'
 import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import VitalGuide from '../components/VitalGuide'
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+/** Alertas de los últimos 7 días de lo que el rol puede ver; enlaza a la más reciente o a la bandeja. */
+function AlertsStat() {
+  const { data, loading } = useAlertsSummary()
+  const total = data ? data.alerts + data.unassigned_alerts : 0
+  const days = data?.days ?? 7
+
+  let value = '—'
+  let hint = 'Sin datos por ahora'
+  let link: { to: string; label: string } | undefined
+  if (loading) {
+    value = '…'
+    hint = 'Cargando…'
+  } else if (data && data.measurements === 0) {
+    hint = `Sin mediciones en los últimos ${days} días`
+  } else if (data) {
+    value = String(total)
+    const unassigned = data.unassigned_alerts > 0 ? ` · ${data.unassigned_alerts} sin asignar` : ''
+    hint = `${plural(data.alerts, 'alerta', 'alertas')} en ${days} días${unassigned}`
+    if (data.latest) {
+      const code = data.latest.patient_code
+      link = { to: `/patients/${encodeURIComponent(code)}/alertas`, label: `Ver ${code}` }
+    } else if (data.unassigned_alerts > 0) {
+      link = { to: '/sin-asignar', label: 'Ver sin asignar' }
+    }
+  }
+  return <StatCard title="Alertas" value={value} hint={hint} icon={BellRing} alert={total > 0} link={link} />
+}
 
 function UsersStat() {
   const { users, loading } = useUsers()
@@ -51,7 +82,7 @@ export default function DashboardPage() {
           hint={patients.length === 0 ? 'Registra el primero en la sección Pacientes' : 'Registrados en el sistema'}
           icon={UsersRound}
         />
-        <StatCard title="Alertas" value="—" hint="Sin mediciones todavía" icon={BellRing} />
+        <AlertsStat />
       </div>
 
       <Card className="overflow-hidden">

@@ -85,3 +85,53 @@ export interface Summary {
 
 /** Días hacia atrás desde hoy; `null` es todo el historial. */
 export type RangeDays = 7 | 30 | 90 | null
+
+/** Medición guardada que aún no tiene paciente (bandeja «Sin asignar»). */
+export interface UnassignedMeasurement {
+  record_id: string
+  device_id: string
+  device_name: string
+  /** ISO-8601 en UTC. */
+  ts: string
+  received_at: string | null
+  weight_kg: number
+  temp_c: number
+  spo2: number
+  bpm: number
+  alert: boolean
+}
+
+/** Resultado de asignar: `ts` de cada medición según lo que pasó con ella. */
+export interface AssignResult {
+  assigned: string[]
+  /** El paciente ya tenía una medición con esa hora: se queda en la bandeja. */
+  conflicts: string[]
+  /** Ya asignada por otra persona, o de un dispositivo que este usuario no ve. */
+  not_found: string[]
+}
+
+/** Estado de la orden «Medir a este paciente». */
+export type OrderStatus = 'pendiente' | 'tomada' | 'completada' | 'cancelada' | 'expirada'
+
+export interface MeasureOrder {
+  command_id: string
+  patient_code: string
+  status: OrderStatus
+  created_at: string
+  expires_at: string
+  taken_at: string | null
+  completed_at: string | null
+  /** Hora (ISO-8601 UTC) de la medición que cumplió la orden. */
+  ts: string | null
+}
+
+/** Alertas de los últimos días que el rol puede ver (tarjeta del resumen). */
+export interface AlertsSummary {
+  days: number
+  /** Mediciones del periodo, con paciente y sin asignar. */
+  measurements: number
+  alerts: number
+  unassigned_alerts: number
+  /** La alerta más reciente de un paciente, para enlazarla. */
+  latest: { patient_code: string; ts: string } | null
+}
