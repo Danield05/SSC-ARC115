@@ -12,7 +12,7 @@ def test_batch_with_alert_sends_one_mail_alert_first(client, device, outbox):  #
     assert len(outbox) == 1
     mail = outbox[0]
     assert mail["to"] == "promo@example.com"
-    assert mail["subject"].startswith("Alerta en 1 mediciones")
+    assert mail["subject"].startswith("Alerta en 1 medición ·")
     assert "temperatura alta" in mail["text"]
     assert mail["text"].index("ALERTAS") < mail["text"].index(f"{PATIENT}\n")
     # 14:32 UTC es 08:32 en El Salvador

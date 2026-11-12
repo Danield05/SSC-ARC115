@@ -41,6 +41,54 @@ def list_devices() -> list[dict]:
     return [i for i in items if i["device_id"] != COUNTER_KEY]
 
 
+def set_command(device_id: str, command: dict) -> bool:
+    """Guarda la orden vigente del dispositivo (reemplaza la anterior)."""
+    try:
+        _table().update_item(
+            Key={"device_id": device_id},
+            UpdateExpression="SET command = :c",
+            ConditionExpression="attribute_exists(device_id)",
+            ExpressionAttributeValues={":c": command},
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True
+
+
+def update_command(
+    device_id: str, command_id: str, changes: dict, from_statuses: tuple[str, ...]
+) -> bool:
+    """Cambia campos de la orden solo si sigue siendo `command_id` y está en uno de los estados
+    de `from_statuses`. Es atómico, así que dos consultas a la vez no la «toman» dos veces.
+    False si la condición no se cumple."""
+    names = {"#c": "command", "#s": "status"}
+    values = {":cid": command_id}
+    sets = []
+    for i, (field, value) in enumerate(changes.items()):
+        names[f"#f{i}"] = field
+        values[f":v{i}"] = value
+        sets.append(f"#c.#f{i} = :v{i}")
+    placeholders = []
+    for i, status in enumerate(from_statuses):
+        values[f":s{i}"] = status
+        placeholders.append(f":s{i}")
+    try:
+        _table().update_item(
+            Key={"device_id": device_id},
+            UpdateExpression="SET " + ", ".join(sets),
+            ConditionExpression=f"#c.command_id = :cid AND #c.#s IN ({', '.join(placeholders)})",
+            ExpressionAttributeNames=names,
+            ExpressionAttributeValues=values,
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True
+
+
 def update_device(device_id: str, changes: dict) -> dict | None:
     """Actualiza campos sueltos. Devuelve el dispositivo o None si no existe."""
     names = {f"#{k}": k for k in changes}

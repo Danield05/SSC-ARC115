@@ -3,18 +3,26 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Record(BaseModel):
     record_id: str = Field(min_length=1, max_length=64)
-    patient_code: str = Field(pattern=r"^[A-Za-z0-9-]{1,32}$")
+    # Opcional: sin paciente (vacío, null o «SIN-ASIGNAR») la medición va a la bandeja «Sin
+    # asignar», salvo que `command_id` sea el de la orden vigente del dispositivo.
+    patient_code: str | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,32}$")
+    command_id: str | None = Field(default=None, pattern=r"^[A-Za-z0-9-]{1,32}$")
     ts: datetime
     weight_kg: float = Field(ge=0, le=500)
     temp_c: float = Field(ge=0, le=60)
     spo2: int = Field(ge=0, le=100)
     bpm: int = Field(ge=0, le=300)
     alert: bool
+
+    @field_validator("patient_code", "command_id", mode="before")
+    @classmethod
+    def _blank_is_none(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 class MeasurementBatch(BaseModel):
@@ -59,6 +67,52 @@ class MeasurementOut(BaseModel):
     bmi: float | None = None
     bmi_category: str | None = None
     review: ReviewOut | None = None
+
+
+class UnassignedOut(BaseModel):
+    """Una medición de la bandeja «Sin asignar»: guardada, pero sin paciente."""
+
+    record_id: str
+    device_id: str
+    device_name: str = ""
+    ts: str
+    received_at: str | None = None
+    weight_kg: float
+    temp_c: float
+    spo2: int
+    bpm: int
+    alert: bool
+
+
+class AssignRef(BaseModel):
+    device_id: str = Field(pattern=r"^[A-Za-z0-9_-]{1,64}$")
+    ts: datetime
+
+
+class AssignIn(BaseModel):
+    patient_code: str = Field(pattern=r"^[A-Za-z0-9-]{1,32}$")
+    items: list[AssignRef] = Field(min_length=1, max_length=100)
+
+
+class AssignResult(BaseModel):
+    assigned: list[str]  # ts (ISO-8601 UTC) de las mediciones movidas al paciente
+    conflicts: list[str]  # el paciente ya tenía una medición con esa hora: no se movió
+    not_found: list[str]  # ya asignada, inexistente o de un dispositivo que el rol no ve
+
+
+class LatestAlert(BaseModel):
+    patient_code: str
+    ts: str
+
+
+class AlertsSummaryOut(BaseModel):
+    """Alertas de los últimos `days` días que el rol puede ver (tarjeta del resumen)."""
+
+    days: int
+    measurements: int  # mediciones del periodo (con paciente y sin asignar)
+    alerts: int  # alertas de pacientes
+    unassigned_alerts: int  # alertas que aún no tienen paciente
+    latest: LatestAlert | None = None
 
 
 class Thresholds(BaseModel):

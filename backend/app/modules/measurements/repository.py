@@ -46,6 +46,34 @@ def set_review(patient_code: str, ts: str, review: dict) -> bool:
     return True
 
 
+def claim_unassigned(key: str, ts: str, patient_code: str, by: str, at: str) -> bool:
+    """Marca una medición de la bandeja como asignada (no se borra: así un reenvío del mismo
+    registro sigue siendo un duplicado y no reaparece en la bandeja). Es atómico: si dos personas
+    la asignan a la vez, solo una gana. False si ya no existe o ya estaba asignada."""
+    try:
+        _table().update_item(
+            Key={"patient_code": key, "ts": ts},
+            UpdateExpression="SET assigned_to = :p, assigned_by = :b, assigned_at = :a",
+            ConditionExpression=(
+                "attribute_exists(patient_code) AND attribute_not_exists(assigned_to)"
+            ),
+            ExpressionAttributeValues={":p": patient_code, ":b": by, ":a": at},
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True
+
+
+def release_unassigned(key: str, ts: str) -> None:
+    """Deshace `claim_unassigned` (la medición no pudo moverse al paciente)."""
+    _table().update_item(
+        Key={"patient_code": key, "ts": ts},
+        UpdateExpression="REMOVE assigned_to, assigned_by, assigned_at",
+    )
+
+
 def list_measurements(patient_code: str, start: str, end: str, limit: int) -> list[dict]:
     """Las `limit` mediciones más recientes del paciente entre `start` y `end`, de la más
     antigua a la más nueva."""

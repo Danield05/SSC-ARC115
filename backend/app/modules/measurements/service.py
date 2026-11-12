@@ -1,9 +1,10 @@
 """Reglas de negocio del módulo measurements."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from app.core.config import get_settings
+from app.core.constants import UNASSIGNED_CODE, unassigned_key
 from app.modules.devices import service as devices_service
 from app.modules.measurements import export, metrics, repository
 from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Record
@@ -26,9 +27,24 @@ def is_alert(record: Record) -> bool:
     )
 
 
-def _to_item(device_id: str, record: Record, received_at: str) -> dict:
+def _storage_code(device: dict, record: Record) -> tuple[str, bool]:
+    """Clave de paciente con la que se guarda el registro y si quedó asignado.
+
+    Gana el código del propio registro. Si no trae (o trae «SIN-ASIGNAR»), se usa el paciente de
+    la orden `command_id` si es la vigente del dispositivo; si tampoco, va a la bandeja
+    «Sin asignar» de ese dispositivo."""
+    code = record.patient_code
+    if code and code.upper() == UNASSIGNED_CODE:
+        code = None
+    code = code or devices_service.order_patient(device, record.command_id)
+    if code:
+        return code, True
+    return unassigned_key(device["device_id"]), False
+
+
+def _to_item(device_id: str, patient_code: str, record: Record, received_at: str) -> dict:
     return {
-        "patient_code": record.patient_code,
+        "patient_code": patient_code,
         "ts": _iso_utc(record.ts),
         "record_id": record.record_id,
         "device_id": device_id,
@@ -49,14 +65,113 @@ def ingest(batch: MeasurementBatch, api_key: str | None) -> tuple[BatchResult, l
     duplicates: list[str] = []
     new_items: list[dict] = []
     for record in batch.records:
-        item = _to_item(batch.device_id, record, received_at)
+        code, assigned = _storage_code(device, record)
+        item = _to_item(batch.device_id, code, record, received_at)
         if repository.put_measurement(item):
-            patients_repository.touch_patient(item["patient_code"], item["ts"], batch.device_id)
+            if assigned:
+                patients_repository.touch_patient(code, item["ts"], batch.device_id)
+            if record.command_id:
+                devices_service.complete_order(batch.device_id, record.command_id, item["ts"])
             saved.append(record.record_id)
             new_items.append(item)
         else:
             duplicates.append(record.record_id)
     return BatchResult(saved=saved, duplicates=duplicates), new_items, device
+
+
+MAX_UNASSIGNED = 500  # por dispositivo
+
+
+def unassigned(role: str, email: str) -> list[dict]:
+    """Mediciones sin paciente de los dispositivos que el rol ve, de la más nueva a la más
+    antigua. Las ya asignadas se quedan en la tabla (para detectar reenvíos) pero no se listan."""
+    items = []
+    for device in devices_service.list_devices(role, email):
+        key = unassigned_key(device["device_id"])
+        for m in repository.list_measurements(key, _FIRST_TS, _LAST_TS, MAX_UNASSIGNED):
+            if "assigned_to" in m:
+                continue
+            items.append(
+                {
+                    **{k: m[k] for k in ("record_id", "device_id", "ts", "received_at")},
+                    **{k: m[k] for k in ("weight_kg", "temp_c", "spo2", "bpm", "alert")},
+                    "device_name": device["name"],
+                }
+            )
+    return sorted(items, key=lambda m: m["ts"], reverse=True)
+
+
+ALERT_WINDOW_DAYS = 7
+
+
+def alerts_summary(role: str, email: str, days: int = ALERT_WINDOW_DAYS) -> dict:
+    """Cuántas mediciones y cuántas alertas hubo en los últimos `days` días, para el resumen.
+
+    Solo cuenta lo que el rol puede ver: sus pacientes (el promotor, los suyos) y, aparte, las
+    mediciones sin asignar de sus dispositivos. `latest` es la alerta más reciente de un paciente
+    (para enlazarla); None si solo hay alertas sin asignar o ninguna."""
+    since = _iso_utc(datetime.now(UTC) - timedelta(days=days))
+    measurements = alerts = unassigned_alerts = 0
+    latest: dict | None = None
+    for patient in patients_service.list_patients(role, email):
+        code = patient["patient_code"]
+        for m in repository.list_measurements(code, since, _LAST_TS, MAX_HISTORY):
+            measurements += 1
+            if m["alert"]:
+                alerts += 1
+                if latest is None or m["ts"] > latest["ts"]:
+                    latest = {"patient_code": code, "ts": m["ts"]}
+    for device in devices_service.list_devices(role, email):
+        key = unassigned_key(device["device_id"])
+        for m in repository.list_measurements(key, since, _LAST_TS, MAX_UNASSIGNED):
+            if "assigned_to" in m:
+                continue
+            measurements += 1
+            unassigned_alerts += bool(m["alert"])
+    return {
+        "days": days,
+        "measurements": measurements,
+        "alerts": alerts,
+        "unassigned_alerts": unassigned_alerts,
+        "latest": latest,
+    }
+
+
+def assign_unassigned(patient_code: str, refs: list[tuple[str, datetime]], role: str, email: str):
+    """Mueve mediciones de la bandeja a un paciente. Devuelve (movidas, en conflicto, no
+    encontradas), con los `ts` ISO-8601. Lanza PatientNotFoundError si el rol no ve al paciente.
+
+    Cada una se reclama primero (atómico) y después se escribe en el paciente con la condición
+    «no existe ya»: si el paciente tiene una medición con esa misma hora, se suelta y se reporta
+    como conflicto sin tocar las demás."""
+    patients_service.get_patient(patient_code, role, email)
+    allowed = {d["device_id"] for d in devices_service.list_devices(role, email)}
+    now = _iso_utc(datetime.now(UTC))
+    assigned: list[str] = []
+    conflicts: list[str] = []
+    not_found: list[str] = []
+    for device_id, when in refs:
+        ts = _iso_utc(when)
+        key = unassigned_key(device_id)
+        if device_id not in allowed or not repository.claim_unassigned(
+            key, ts, patient_code, email, now
+        ):
+            not_found.append(ts)
+            continue
+        original = repository.get_measurement(key, ts)
+        item = {
+            k: v
+            for k, v in original.items()
+            if k not in ("assigned_to", "assigned_by", "assigned_at")
+        }
+        item |= {"patient_code": patient_code, "assigned_by": email, "assigned_at": now}
+        if not repository.put_measurement(item):
+            repository.release_unassigned(key, ts)
+            conflicts.append(ts)
+            continue
+        patients_repository.touch_patient(patient_code, ts, device_id)
+        assigned.append(ts)
+    return assigned, conflicts, not_found
 
 
 def thresholds() -> dict:
