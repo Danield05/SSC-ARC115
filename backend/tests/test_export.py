@@ -358,3 +358,6 @@ def test_graphs_sheet_has_one_chart_per_parameter_and_the_scatter(client, admin,
             assert expected in titles
         assert "Pulso en el tiempo" in titles and "Temperatura contra pulso" in titles
         assert ("c:dateAx" in titles) is date_axis
+        # Con días relativos las de líneas pasan a dispersión: el eje es numérico y proporcional
+        assert titles.count("<c:lineChart>") == (4 if date_axis else 0)
+        assert titles.count("<c:scatterChart>") == (1 if date_axis else 5)

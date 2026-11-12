@@ -171,7 +171,7 @@ def build_xlsx(
     sheet.set_landscape()
     sheet.fit_to_pages(1, 0)  # al imprimir, todas las columnas en el ancho de la hoja
     sheet.set_column("A:A", 30 if anonymous else 24, when)
-    sheet.set_column("B:B", 12)
+    sheet.set_column("B:B", 15 if anonymous else 12)  # «ANON-6264F571» no cabe en 12
     sheet.set_column("C:F", 16)
     sheet.set_column("G:H", 10)
     sheet.set_column("I:I", 16)
@@ -397,7 +397,13 @@ def build_xlsx(
     g.fit_to_pages(1, 1)  # las cinco gráficas en una sola hoja al imprimir o exportar a PDF
 
     def line_chart(variable: str, title: str):
-        chart = wb.add_chart({"type": "line"})
+        # Con fechas, un gráfico de líneas con eje de fechas. Con días relativos (anonimizado) las
+        # categorías serían texto con pasos iguales, y varias mediciones en un mismo día se
+        # desparramarían: una dispersión con líneas pone cada una en su día.
+        if anonymous:
+            chart = wb.add_chart({"type": "scatter", "subtype": "straight_with_markers"})
+        else:
+            chart = wb.add_chart({"type": "line"})
         chart.add_series(
             {
                 "name": f"{LABEL[variable]} ({UNIT[variable]})",
@@ -408,7 +414,7 @@ def build_xlsx(
         )
         chart.set_title({"name": title})
         if anonymous:
-            chart.set_x_axis({"name": DAYS_HEADER, "num_format": "0"})
+            chart.set_x_axis({"name": DAYS_HEADER, "num_format": "0", "min": 0})
         else:
             chart.set_x_axis({"name": "Fecha", "date_axis": True, "num_format": "dd/mm"})
         # La saturación no pasa de 100 %: sin tope, Excel dibuja el eje hasta 120
