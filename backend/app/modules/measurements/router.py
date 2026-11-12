@@ -13,6 +13,8 @@ from app.modules.measurements.schemas import (
     BatchResult,
     HistoryOut,
     MeasurementBatch,
+    ReviewIn,
+    ReviewOut,
     SummaryOut,
 )
 from app.modules.notifications import service as notifications
@@ -24,6 +26,7 @@ router = APIRouter(prefix="/measurements", tags=["measurements"])
 history_router = APIRouter(prefix="/patients", tags=["measurements"])
 
 any_role = require_roles("admin", "viewer", "promoter")
+reviewer_role = require_roles("admin", "promoter")  # el evaluador (viewer) solo lee
 
 
 @router.post("", response_model=BatchResult)
@@ -64,6 +67,25 @@ def patient_history(
         ) from None
 
 
+@history_router.patch("/{patient_code}/measurements/{ts}/review", response_model=ReviewOut)
+def review_alert(
+    patient_code: str,
+    ts: datetime,
+    body: ReviewIn,
+    user: CurrentUser = Depends(reviewer_role),  # noqa: B008
+):
+    try:
+        return service.review_alert(patient_code, ts, body.status, body.note, user.role, user.email)
+    except PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+    except service.MeasurementNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Medición no encontrada") from None
+    except service.NotAnAlertError:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Solo se revisan las mediciones con alerta"
+        ) from None
+
+
 @history_router.get("/{patient_code}/summary", response_model=SummaryOut)
 def patient_summary(patient_code: str, user: CurrentUser = Depends(any_role)):  # noqa: B008
     try:
@@ -80,10 +102,11 @@ def patient_export(
     start: Annotated[datetime | None, Query(alias="from")] = None,
     end: Annotated[datetime | None, Query(alias="to")] = None,
     identified: bool = False,
+    anonymize: bool = False,
 ):
     try:
         content, media_type, name = service.export_file(
-            patient_code, fmt, start, end, user.role, user.email, identified
+            patient_code, fmt, start, end, user.role, user.email, identified, anonymize
         )
     except PatientNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
@@ -94,6 +117,11 @@ def patient_export(
     except service.ExportForbiddenError:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Solo un administrador puede exportar datos personales"
+        ) from None
+    except service.ExportOptionsError:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "No se puede pedir a la vez la exportación identificada y la anonimizada",
         ) from None
     return Response(
         content=content,

@@ -6,9 +6,15 @@ XlsxWriter no calcula fórmulas, así que cada una se escribe con su valor ya ca
 (con las funciones de `metrics.py`, las mismas del panel de resumen): un visor que no recalcula
 muestra números y no ceros. Por defecto solo lleva el código del paciente; los datos personales
 entran únicamente con `identified`.
+
+Con `anonymous` el código real se cambia por un ID sustituto (`pseudonym`) y la columna de fecha
+pasa a ser los días transcurridos desde la primera medición del archivo: las fórmulas siguen
+funcionando porque solo dependen de las diferencias entre fechas, no de la fecha en sí.
 """
 
 import csv
+import hashlib
+import hmac
 import io
 from datetime import datetime, timedelta
 
@@ -22,8 +28,10 @@ AUTHOR = "SSC-ARC115"
 NA = "n/d"
 YES, NO = "Sí", "No"
 
+DATE_HEADER = "Fecha y hora (El Salvador)"
+DAYS_HEADER = "Días desde la primera medición"
 HEADERS = [
-    "Fecha y hora (El Salvador)",
+    DATE_HEADER,
     "Código",
     "Peso (kg)",
     "Temperatura (°C)",
@@ -31,6 +39,7 @@ HEADERS = [
     "Pulso (lpm)",
     "Alerta",
     "IMC",
+    "Revisión",
 ]
 # Columna de cada variable en la hoja Mediciones.
 COLUMN = {"weight_kg": "C", "temp_c": "D", "spo2": "E", "bpm": "F"}
@@ -54,19 +63,61 @@ def filename(code: str, extension: str, today: datetime) -> str:
     return f"{code}_{(today + SV_OFFSET).strftime('%Y-%m-%d')}.{extension}"
 
 
+def anonymous_filename(alias: str, extension: str) -> str:
+    """Sin el código real ni la fecha de descarga."""
+    return f"{alias}_anonimo.{extension}"
+
+
+def pseudonym(code: str, secret: str) -> str:
+    """ID sustituto estable: HMAC-SHA256 del código con el secreto del servidor.
+
+    El mismo paciente sale siempre con el mismo ID (se pueden unir descargas), y sin el secreto no
+    se puede volver al código, ni probando los códigos P-0001, P-0002… uno por uno."""
+    digest = hmac.new(secret.encode(), f"anon-export:{code}".encode(), hashlib.sha256)
+    return f"ANON-{digest.hexdigest()[:8].upper()}"
+
+
+def headers(anonymous: bool) -> list[str]:
+    return [DAYS_HEADER if anonymous and h == DATE_HEADER else h for h in HEADERS]
+
+
+def elapsed_days(ts: str, origin: datetime) -> float:
+    """Días (con decimales) entre la primera medición del archivo y `ts`."""
+    return (metrics.parse_ts(ts) - origin).total_seconds() / 86400
+
+
 def _yes_no(alert: bool) -> str:
     return YES if alert else NO
 
 
-def build_csv(items: list[dict]) -> bytes:
-    """CSV con las mismas columnas de la hoja Mediciones, en UTF-8 con BOM (para las tildes)."""
+REVIEW_LABEL = {
+    "confirmada": "Confirmada",
+    "falso_positivo": "Falso positivo",
+    "artefacto": "Artefacto",
+}
+
+
+def _review(m: dict) -> str:
+    """Solo la etiqueta: la nota y quién revisó son datos internos y no salen en el archivo."""
+    review = m.get("review")
+    return REVIEW_LABEL.get(review["status"], "") if review else ""
+
+
+def build_csv(items: list[dict], anonymous: bool = False) -> bytes:
+    """CSV con las mismas columnas de la hoja Mediciones, en UTF-8 con BOM (para las tildes).
+
+    Con `anonymous` la primera columna son los días desde la primera medición; el llamador ya
+    cambió el código de cada medición por el ID sustituto."""
     out = io.StringIO()
     writer = csv.writer(out, lineterminator="\r\n")
-    writer.writerow(HEADERS)
+    writer.writerow(headers(anonymous))
+    origin = metrics.parse_ts(items[0]["ts"]) if items else None
     for m in items:
         writer.writerow(
             [
-                local_time(m["ts"]).strftime("%Y-%m-%d %H:%M:%S"),
+                round(elapsed_days(m["ts"], origin), 6)
+                if anonymous
+                else local_time(m["ts"]).strftime("%Y-%m-%d %H:%M:%S"),
                 m["patient_code"],
                 float(m["weight_kg"]),
                 float(m["temp_c"]),
@@ -74,6 +125,7 @@ def build_csv(items: list[dict]) -> bytes:
                 int(m["bpm"]),
                 _yes_no(m["alert"]),
                 "" if m.get("bmi") is None else m["bmi"],
+                _review(m),
             ]
         )
     return b"\xef\xbb\xbf" + out.getvalue().encode("utf-8")
@@ -88,10 +140,17 @@ def build_xlsx(
     items: list[dict],
     thresholds: dict,
     identified: dict | None = None,
+    anonymous: bool = False,
 ) -> bytes:
-    """Libro de Excel. `identified` (nombre y contacto del paciente) solo lo pasa un admin."""
+    """Libro de Excel. `identified` (nombre y contacto del paciente) solo lo pasa un admin.
+
+    Con `anonymous`, `code` ya es el ID sustituto y la columna A son los días desde la primera
+    medición (un número, no una fecha)."""
     out = io.BytesIO()
-    wb = xlsxwriter.Workbook(out, {"in_memory": True})
+    # use_future_functions: MINIFS y MAXIFS son de Excel 2019 y en el archivo llevan el prefijo
+    # `_xlfn.`; sin él Excel da #NAME? (y el IFERROR lo esconde detrás de «n/d»). LibreOffice sí
+    # los entiende sin prefijo, por eso solo se nota abriendo el archivo en Excel.
+    wb = xlsxwriter.Workbook(out, {"in_memory": True, "use_future_functions": True})
     wb.set_properties({"author": AUTHOR, "title": f"Historial de {code}", "company": AUTHOR})
 
     f = _formats(wb)
@@ -102,17 +161,25 @@ def build_xlsx(
         return f"Mediciones!${col}$2:${col}${last}"
 
     dates = rng("A")
+    origin = metrics.parse_ts(items[0]["ts"]) if items else None
+    when = f["days"] if anonymous else f["datetime"]  # formato de la columna A y de B7/B8
 
     # --- Mediciones -------------------------------------------------------------------------
     sheet = wb.add_worksheet("Mediciones")
-    sheet.write_row(0, 0, HEADERS, f["header"])
+    sheet.write_row(0, 0, headers(anonymous), f["header"])
     sheet.freeze_panes(1, 0)
-    sheet.set_column("A:A", 24, f["datetime"])
+    sheet.set_landscape()
+    sheet.fit_to_pages(1, 0)  # al imprimir, todas las columnas en el ancho de la hoja
+    sheet.set_column("A:A", 30 if anonymous else 24, when)
     sheet.set_column("B:B", 12)
     sheet.set_column("C:F", 16)
     sheet.set_column("G:H", 10)
+    sheet.set_column("I:I", 16)
     for i, m in enumerate(items, start=1):
-        sheet.write_datetime(i, 0, local_time(m["ts"]), f["datetime"])
+        if anonymous:
+            sheet.write_number(i, 0, elapsed_days(m["ts"], origin), when)
+        else:
+            sheet.write_datetime(i, 0, local_time(m["ts"]), when)
         sheet.write(i, 1, m["patient_code"])
         sheet.write_number(i, 2, float(m["weight_kg"]), f["one"])
         sheet.write_number(i, 3, float(m["temp_c"]), f["one"])
@@ -127,13 +194,16 @@ def build_xlsx(
             f["one"],
             "" if bmi_value is None else bmi_value,
         )
+        sheet.write(i, 8, _review(m))
     if n:
         sheet.conditional_format(
-            1, 0, n, 7, {"type": "formula", "criteria": '=$G2="Sí"', "format": f["alert"]}
+            1, 0, n, 8, {"type": "formula", "criteria": '=$G2="Sí"', "format": f["alert"]}
         )
 
     # --- Resumen ----------------------------------------------------------------------------
     s = wb.add_worksheet("Resumen")
+    s.set_landscape()
+    s.fit_to_pages(1, 0)
     s.set_column("A:A", 38)
     s.set_column("B:F", 16)
     s.write("A1", f"Resumen de {code}", f["title"])
@@ -151,13 +221,18 @@ def build_xlsx(
     if age is not None:
         s.write_number("B5", age)
     s.write("B6", sex)
-    s.write("A7", "Primera medición")
-    s.write("A8", "Última medición")
+    s.write("A7", "Primera medición (día)" if anonymous else "Primera medición")
+    s.write("A8", "Última medición (día)" if anonymous else "Última medición")
     s.write("A9", "Mediciones")
-    first_dt = local_time(items[0]["ts"]) if items else None
-    last_dt = local_time(items[-1]["ts"]) if items else None
-    s.write_formula("B7", f'=IF(B9>0,MIN({dates}),"{NA}")', f["datetime"], excel_serial(first_dt))
-    s.write_formula("B8", f'=IF(B9>0,MAX({dates}),"{NA}")', f["datetime"], excel_serial(last_dt))
+    if anonymous:
+        first_cache = 0 if items else NA
+        last_cache = elapsed_days(items[-1]["ts"], origin) if items else NA
+        s.write("C7", "Días desde la primera medición del archivo; no hay fechas reales")
+    else:
+        first_cache = excel_serial(local_time(items[0]["ts"])) if items else NA
+        last_cache = excel_serial(local_time(items[-1]["ts"])) if items else NA
+    s.write_formula("B7", f'=IF(B9>0,MIN({dates}),"{NA}")', when, first_cache)
+    s.write_formula("B8", f'=IF(B9>0,MAX({dates}),"{NA}")', when, last_cache)
     s.write_formula("B9", f"=COUNT({dates})", None, n)
 
     s.write("A11", "Peso más reciente (kg)")
@@ -291,7 +366,8 @@ def build_xlsx(
         ):
             row += 1
             s.write(f"A{row}", label)
-            s.write(f"B{row}", identified.get(key, ""))
+            # write_string: un nombre que empiece con «=» no debe convertirse en fórmula
+            s.write_string(f"B{row}", str(identified.get(key, "")))
 
     # --- Correlaciones ----------------------------------------------------------------------
     c = wb.add_worksheet("Correlaciones")
@@ -317,19 +393,38 @@ def build_xlsx(
 
     # --- Gráficas ---------------------------------------------------------------------------
     g = wb.add_worksheet("Gráficas")
-    weight_chart = wb.add_chart({"type": "line"})
-    weight_chart.add_series(
-        {
-            "name": "Peso (kg)",
-            "categories": f"=Mediciones!$A$2:$A${last}",
-            "values": f"=Mediciones!$C$2:$C${last}",
-        }
-    )
-    weight_chart.set_title({"name": f"Peso en el tiempo · {code}"})
-    weight_chart.set_x_axis({"name": "Fecha", "date_axis": True, "num_format": "dd/mm"})
-    weight_chart.set_y_axis({"name": "kg"})
-    weight_chart.set_legend({"none": True})
-    g.insert_chart("A1", weight_chart, {"x_scale": 1.6, "y_scale": 1.2})
+    g.set_landscape()
+    g.fit_to_pages(1, 1)  # las cinco gráficas en una sola hoja al imprimir o exportar a PDF
+
+    def line_chart(variable: str, title: str):
+        chart = wb.add_chart({"type": "line"})
+        chart.add_series(
+            {
+                "name": f"{LABEL[variable]} ({UNIT[variable]})",
+                "categories": f"=Mediciones!$A$2:$A${last}",
+                "values": f"=Mediciones!${COLUMN[variable]}$2:${COLUMN[variable]}${last}",
+                "marker": {"type": "circle", "size": 5},
+            }
+        )
+        chart.set_title({"name": title})
+        if anonymous:
+            chart.set_x_axis({"name": DAYS_HEADER, "num_format": "0"})
+        else:
+            chart.set_x_axis({"name": "Fecha", "date_axis": True, "num_format": "dd/mm"})
+        # La saturación no pasa de 100 %: sin tope, Excel dibuja el eje hasta 120
+        chart.set_y_axis({"name": UNIT[variable], **({"max": 100} if variable == "spo2" else {})})
+        chart.set_legend({"none": True})
+        return chart
+
+    # Cuadrícula de 2 columnas (cada gráfica ocupa unas 12 columnas y 17 filas)
+    for cell, variable, label in (
+        ("A1", "weight_kg", "Peso en el tiempo"),
+        ("M1", "temp_c", "Temperatura en el tiempo"),
+        ("A19", "spo2", "SpO₂ en el tiempo"),
+        ("M19", "bpm", "Pulso en el tiempo"),
+    ):
+        chart = line_chart(variable, f"{label} · {code}")
+        g.insert_chart(cell, chart, {"x_scale": 1.6, "y_scale": 1.2})
     scatter = wb.add_chart({"type": "scatter"})
     scatter.add_series(
         {
@@ -344,7 +439,7 @@ def build_xlsx(
     scatter.set_x_axis({"name": "Temperatura (°C)"})
     scatter.set_y_axis({"name": "Pulso (lpm)"})
     scatter.set_legend({"none": True})
-    g.insert_chart("A26", scatter, {"x_scale": 1.6, "y_scale": 1.2})
+    g.insert_chart("A37", scatter, {"x_scale": 1.6, "y_scale": 1.2})
 
     # --- Diccionario ------------------------------------------------------------------------
     d = wb.add_worksheet("Diccionario")
@@ -387,6 +482,7 @@ def _formats(wb: xlsxwriter.Workbook) -> dict:
         ),
         "title": wb.add_format({"bold": True, "font_size": 14}),
         "datetime": wb.add_format({"num_format": "dd/mm/yyyy hh:mm", "align": "left"}),
+        "days": wb.add_format({"num_format": "0.00", "align": "left"}),
         "one": wb.add_format({"num_format": "0.0"}),
         "two": wb.add_format({"num_format": "0.00"}),
         "three": wb.add_format({"num_format": "0.000"}),

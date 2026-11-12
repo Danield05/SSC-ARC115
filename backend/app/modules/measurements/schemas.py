@@ -1,6 +1,7 @@
 """Modelos del contrato ESP32 -> API (ver CLAUDE.md)."""
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -26,10 +27,30 @@ class BatchResult(BaseModel):
     duplicates: list[str]
 
 
+ReviewStatus = Literal["confirmada", "falso_positivo", "artefacto"]
+
+
+class ReviewIn(BaseModel):
+    status: ReviewStatus
+    note: str = Field(default="", max_length=200)
+
+
+class ReviewOut(BaseModel):
+    """Revisión de una alerta (estilo PhysioTag): quién la etiquetó, cuándo y con qué nota."""
+
+    status: ReviewStatus
+    note: str = ""
+    reviewed_by: str
+    reviewed_at: str
+
+
 class MeasurementOut(BaseModel):
     record_id: str
     device_id: str
     ts: str
+    # Cuándo la recibió el servidor (la hora del lote). Sirve para la trazabilidad: la diferencia
+    # con `ts` es el tiempo que el dispositivo la guardó sin conexión.
+    received_at: str | None = None
     weight_kg: float
     temp_c: float
     spo2: int
@@ -37,6 +58,7 @@ class MeasurementOut(BaseModel):
     alert: bool
     bmi: float | None = None
     bmi_category: str | None = None
+    review: ReviewOut | None = None
 
 
 class Thresholds(BaseModel):
