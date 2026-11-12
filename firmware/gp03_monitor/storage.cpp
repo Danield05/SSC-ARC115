@@ -11,7 +11,6 @@ static const char* QUEUE = "/queue.csv";
 static const char* QUEUE_TMP = "/queue.tmp";
 static const char* INDEX = "/sync.idx";
 static const char* COMPACT = "/compact.cfg";
-static const char* PATIENTS = "/patients.csv";
 static const char* REJECTED = "/rejected.csv";
 static const size_t LINE_BYTES = 160;
 
@@ -35,23 +34,25 @@ static bool parseLine(const char* line, Record& r) {
   char copy[LINE_BYTES];
   strncpy(copy, line, sizeof(copy) - 1);
   copy[sizeof(copy) - 1] = 0;
-  char* fields[8];
+  char* fields[9];
   int count = 0;
   char* p = copy;
-  while (count < 8) {
+  while (count < 9) {
     fields[count++] = p;
     char* comma = strchr(p, ',');
     if (!comma) break;
     *comma = 0;
     p = comma + 1;
   }
-  if (count != 8) return false;
+  if (count != 8 && count != 9) return false;  // 9 = con command_id; 8 = líneas anteriores
+  const char* command = count == 9 ? fields[8] : "";
   if (strlen(fields[0]) >= sizeof(r.id) || strlen(fields[1]) >= sizeof(r.patient) ||
-      strlen(fields[2]) >= sizeof(r.ts))
+      strlen(fields[2]) >= sizeof(r.ts) || strlen(command) >= sizeof(r.command))
     return false;
   strcpy(r.id, fields[0]);
   strcpy(r.patient, fields[1]);
   strcpy(r.ts, fields[2]);
+  strcpy(r.command, command);
   r.weightKg = atof(fields[3]);
   r.tempC = atof(fields[4]);
   r.spo2 = atoi(fields[5]);
@@ -319,26 +320,5 @@ uint8_t usedPercent() {
 }
 
 bool isFull() { return usedPercent() >= MEMORY_FULL_PERCENT; }
-
-void savePatients(const char codes[][PATIENT_CODE_LEN], int count) {
-  File f = LittleFS.open(PATIENTS, FILE_WRITE);
-  if (!f) return;
-  for (int i = 0; i < count; i++) f.println(codes[i]);
-  f.flush();
-  f.close();
-}
-
-int loadPatients(char codes[][PATIENT_CODE_LEN], int maxCount) {
-  File f = LittleFS.open(PATIENTS, FILE_READ);
-  if (!f) return 0;
-  int n = 0;
-  char line[PATIENT_CODE_LEN + 4];
-  while (n < maxCount && readLine(f, line, sizeof(line)) > 0) {
-    if (line[0] == 0 || strlen(line) >= PATIENT_CODE_LEN) continue;
-    strcpy(codes[n++], line);
-  }
-  f.close();
-  return n;
-}
 
 }  // namespace storage

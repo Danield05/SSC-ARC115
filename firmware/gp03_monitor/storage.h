@@ -1,8 +1,9 @@
 // Cola local de mediciones en la flash interna (LittleFS).
 //
 //   /queue.csv   una línea por registro: record_id,patient_code,ts,weight_kg,temp_c,spo2,bpm,alert
+//                [,command_id]  (patient_code vacío = sin paciente; command_id solo si vino de una
+//                orden «Medir» de la web; las líneas viejas de 8 campos se siguen leyendo)
 //   /sync.idx    puntero de sincronización: "<byte inicial de lo pendiente> <registros ya enviados>"
-//   /patients.csv  códigos de paciente bajados de la API
 //   /rejected.csv  registros que la API rechazó con 422
 //
 // Regla de oro: nunca se borra un registro que no se haya sincronizado. Cada registro se guarda
@@ -13,7 +14,8 @@
 
 struct Record {
   char id[40];                      // vacío = línea dañada (se descarta al sincronizar)
-  char patient[PATIENT_CODE_LEN];
+  char patient[PATIENT_CODE_LEN];   // vacío = sin paciente: va a la bandeja «Sin asignar»
+  char command[CMD_ID_LEN];         // id de la orden «Medir» que originó el registro (o vacío)
   char ts[24];                      // ISO-8601 UTC con Z
   float weightKg;
   float tempC;
@@ -44,8 +46,5 @@ uint32_t pendingCount();
 uint32_t totalCount();
 uint8_t usedPercent();
 bool isFull();  // memoria casi llena (ya se intentó liberar lo sincronizado)
-
-void savePatients(const char codes[][PATIENT_CODE_LEN], int count);
-int loadPatients(char codes[][PATIENT_CODE_LEN], int maxCount);
 
 }  // namespace storage

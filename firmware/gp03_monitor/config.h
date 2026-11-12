@@ -71,13 +71,23 @@
 #define HTTP_TIMEOUT_MS 25000      // el servidor manda el correo antes de responder (Gmail ≤ 10 s)
 #define SYNC_BACKOFF_MIN_MS 5000UL
 #define SYNC_BACKOFF_MAX_MS 300000UL
-#define PATIENTS_REFRESH_MS 600000UL
+#define COMMAND_POLL_MS 5000UL     // cada cuánto se pregunta a la API si hay una orden «Medir»
+#define COMMAND_TIMEOUT_MS 8000UL  // plazo de esa consulta (la de lotes espera hasta HTTP_TIMEOUT_MS)
+#define COMMAND_CONNECT_MS 3000UL  // y para conectar: con Wi-Fi pero sin API no se bloquea ~18 s
+#define COMMAND_POLL_FAIL_MS 20000UL  // si la API no responde, se consulta cada tanto
 #define WIFI_RETRY_MS 15000UL
 #define MIN_VALID_EPOCH 1767225600L  // 2026-01-01: antes de eso el reloj no se ha puesto
 #define NTP_SERVER_1 "pool.ntp.org"
 #define NTP_SERVER_2 "time.google.com"
 
+// ───────────── Página local (ver webpage.h) ─────────────
+#define LOCAL_PAGE_PORT 80
+#define WEB_FAIL_LIMIT 5             // PIN incorrecto: tras este número de intentos se bloquea
+#define WEB_BLOCK_MS 60000UL
+#define WEB_REQUEST_TTL_MS 120000UL  // una orden de la página vence si el aparato no la toma
+
 // ───────────── Pacientes ─────────────
+// El dispositivo no elige paciente: la medición sale sin paciente (bandeja «Sin asignar» de la
+// web) o con el de la orden «Medir» que dejó el promotor desde la web.
 #define PATIENT_CODE_LEN 20
-#define MAX_PATIENTS 60
-#define FALLBACK_PATIENTS 10       // sin lista descargada se recorre P-0001 a P-00NN
+#define CMD_ID_LEN 24              // «CMD-» y 12 caracteres hexadecimales
