@@ -1,8 +1,23 @@
+/** Etiqueta de una alerta revisada (estilo PhysioTag). */
+export type ReviewStatus = 'confirmada' | 'falso_positivo' | 'artefacto'
+
+export interface Review {
+  status: ReviewStatus
+  /** Comentario de hasta 200 caracteres; puede ir vacío. */
+  note: string
+  /** Correo de quien la revisó. */
+  reviewed_by: string
+  /** ISO-8601 en UTC. */
+  reviewed_at: string
+}
+
 export interface Measurement {
   record_id: string
   device_id: string
   /** ISO-8601 en UTC. */
   ts: string
+  /** Cuándo la recibió el servidor (ISO-8601 en UTC); null en registros antiguos. */
+  received_at: string | null
   weight_kg: number
   temp_c: number
   spo2: number
@@ -12,6 +27,8 @@ export interface Measurement {
   bmi: number | null
   /** Categoría de la OMS según edad y sexo; null si no se puede clasificar. */
   bmi_category: string | null
+  /** Revisión de la alerta; null si no se ha revisado (o si la medición no tiene alerta). */
+  review: Review | null
 }
 
 /** Umbrales de alerta del servidor; el frontend solo los dibuja. */

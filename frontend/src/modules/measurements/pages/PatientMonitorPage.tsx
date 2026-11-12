@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import PageHeader from '@/shared/components/PageHeader'
 import { usePatient } from '../../patients/hooks/usePatient'
 import DeviationMark from '../components/DeviationMark'
+import PatientTabs from '../components/PatientTabs'
 import RangeFilter from '../components/RangeFilter'
 import Sparkline from '../components/Sparkline'
 import { useHistory } from '../hooks/useHistory'
@@ -123,16 +124,17 @@ export default function PatientMonitorPage() {
   return (
     <>
       <Link
-        to={`/patients/${encodeURIComponent(code)}`}
+        to="/patients"
         className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft className="size-4" />
-        Historial
+        Pacientes
       </Link>
       <PageHeader
         title={title}
         description="Recorre las mediciones con la línea de tiempo. Informativo: el sistema registra y da seguimiento, no diagnostica."
       />
+      <PatientTabs code={code} />
 
       {error && (
         <Alert variant="destructive">

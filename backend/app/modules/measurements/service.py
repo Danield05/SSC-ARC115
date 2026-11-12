@@ -106,6 +106,37 @@ def history(
     }
 
 
+class MeasurementNotFoundError(Exception):
+    """No hay una medición con ese `ts` para el paciente."""
+
+
+class NotAnAlertError(Exception):
+    """Solo se revisan las mediciones con alerta."""
+
+
+def review_alert(
+    patient_code: str, ts: datetime, status: str, note: str, role: str, email: str
+) -> dict:
+    """Etiqueta una alerta (confirmada, falso positivo o artefacto) con una nota opcional.
+    Mismo acceso que el historial: PatientNotFoundError si el rol no ve al paciente."""
+    patients_service.get_patient(patient_code, role, email)
+    key = _iso_utc(ts)
+    measurement = repository.get_measurement(patient_code, key)
+    if measurement is None:
+        raise MeasurementNotFoundError(key)
+    if not measurement["alert"]:
+        raise NotAnAlertError(key)
+    review = {
+        "status": status,
+        "note": note.strip(),
+        "reviewed_by": email,
+        "reviewed_at": _iso_utc(datetime.now(UTC)),
+    }
+    if not repository.set_review(patient_code, key, review):
+        raise MeasurementNotFoundError(key)
+    return review
+
+
 def _trend(variable: str, items: list[dict]) -> dict | None:
     points = [(metrics.parse_ts(m["ts"]), m[variable]) for m in items]
     per_day = metrics.slope_per_day(points)
@@ -162,6 +193,10 @@ class ExportForbiddenError(Exception):
     """Solo un administrador puede exportar con los datos personales del paciente."""
 
 
+class ExportOptionsError(Exception):
+    """`identified` y `anonymize` se contradicen: no se pueden pedir a la vez."""
+
+
 def export_file(
     patient_code: str,
     fmt: str,
@@ -170,24 +205,35 @@ def export_file(
     role: str,
     email: str,
     identified: bool = False,
+    anonymize: bool = False,
 ) -> tuple[bytes, str, str]:
     """Archivo del historial (contenido, tipo MIME, nombre). Mismas comprobaciones de acceso y
-    de rango que el historial; los datos personales solo se incluyen si `identified` y es admin."""
+    de rango que el historial; los datos personales solo se incluyen si `identified` y es admin.
+
+    Con `anonymize` el código real se cambia por un ID sustituto y las fechas por días desde la
+    primera medición; cualquier rol que pueda ver al paciente puede pedirlo."""
     data = history(patient_code, start, end, role, email)
     if identified and role != "admin":
         raise ExportForbiddenError(patient_code)
-    items = [{**m, "patient_code": patient_code} for m in data["items"]]
-    name = export.filename(patient_code, fmt, datetime.now(UTC).replace(tzinfo=None))
+    if identified and anonymize:
+        raise ExportOptionsError(patient_code)
+    code = export.pseudonym(patient_code, get_settings().jwt_secret) if anonymize else patient_code
+    items = [{**m, "patient_code": code} for m in data["items"]]
+    if anonymize:
+        name = export.anonymous_filename(code, fmt)
+    else:
+        name = export.filename(patient_code, fmt, datetime.now(UTC).replace(tzinfo=None))
     if fmt == "csv":
-        return export.build_csv(items), EXPORT_TYPES["csv"], name
+        return export.build_csv(items, anonymize), EXPORT_TYPES["csv"], name
     personal = patients_service.get_patient(patient_code, role, email) if identified else None
     content = export.build_xlsx(
-        code=patient_code,
+        code=code,
         age=data["age"],
         sex=data["sex"],
         height_cm=data["height_cm"],
         items=items,
         thresholds=data["thresholds"],
         identified=personal,
+        anonymous=anonymize,
     )
     return content, EXPORT_TYPES["xlsx"], name

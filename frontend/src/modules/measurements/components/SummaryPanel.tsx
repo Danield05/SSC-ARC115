@@ -26,16 +26,29 @@ function correlationText(r: number) {
 }
 
 /** La tendencia lleva flecha y texto, no solo color. */
-function TrendCell({ trend, unit, decimals }: { trend: Trend | null; unit: string; decimals: number }) {
+function TrendCell({
+  trend,
+  unit,
+  decimals,
+  compact,
+}: {
+  trend: Trend | null
+  unit: string
+  decimals: number
+  /** Sin el detalle por día: para la línea bajo el nombre en pantallas angostas. */
+  compact?: boolean
+}) {
   if (!trend) return <span className="text-muted-foreground">n/d</span>
   const Icon = trend.label === 'sube' ? ArrowUp : trend.label === 'baja' ? ArrowDown : ArrowRight
   return (
     <span className="inline-flex items-center gap-1">
       <Icon className="size-4" aria-hidden />
       {trend.label}
-      <span className="text-muted-foreground text-xs">
-        ({signed(trend.per_day, decimals + 1)} {unit}/día)
-      </span>
+      {!compact && (
+        <span className="text-muted-foreground text-xs">
+          ({signed(trend.per_day, decimals + 1)} {unit}/día)
+        </span>
+      )}
     </span>
   )
 }
@@ -117,7 +130,7 @@ export default function SummaryPanel({ summary }: { summary: Summary }) {
                 <TableHead className="text-right">Promedio</TableHead>
                 <TableHead className="text-right">Mínimo</TableHead>
                 <TableHead className="text-right">Máximo</TableHead>
-                <TableHead>Tendencia</TableHead>
+                <TableHead className="hidden sm:table-cell">Tendencia</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -125,11 +138,17 @@ export default function SummaryPanel({ summary }: { summary: Summary }) {
                 const s = current[v.key]
                 return (
                   <TableRow key={v.key}>
-                    <TableCell className="font-medium">{v.label}</TableCell>
+                    <TableCell className="font-medium">
+                      {v.label}
+                      {/* En pantallas angostas la tendencia no cabe como columna: va bajo el nombre. */}
+                      <div className="mt-0.5 text-xs font-normal sm:hidden">
+                        <TrendCell trend={trend[v.key]} unit={v.unit} decimals={v.decimals} compact />
+                      </div>
+                    </TableCell>
                     <TableCell className="text-right">{s ? `${formatNumber(s.avg, v.decimals)} ${v.unit}` : '—'}</TableCell>
                     <TableCell className="text-right">{s ? formatNumber(s.min, v.decimals) : '—'}</TableCell>
                     <TableCell className="text-right">{s ? formatNumber(s.max, v.decimals) : '—'}</TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <TrendCell trend={trend[v.key]} unit={v.unit} decimals={v.decimals} />
                     </TableCell>
                   </TableRow>
