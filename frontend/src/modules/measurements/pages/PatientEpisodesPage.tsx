@@ -4,7 +4,6 @@ import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import StatCard from '@/shared/components/StatCard'
-import { usePatient } from '../../patients/hooks/usePatient'
 import EpisodeCard from '../components/EpisodeCard'
 import EpisodeTimeline from '../components/EpisodeTimeline'
 import PatientHeader from '../components/PatientHeader'
@@ -19,7 +18,6 @@ const PAGE = 10
 /** Episodios: las alertas seguidas agrupadas, en una línea de tiempo y en una lista. */
 export default function PatientEpisodesPage() {
   const { code = '' } = useParams()
-  const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(90)
   const [shown, setShown] = useState(PAGE)
   const { data, error, notFound } = useHistory(code, days)
@@ -51,7 +49,7 @@ export default function PatientEpisodesPage() {
 
   return (
     <>
-      <PatientHeader code={code} patient={patient} intro="Episodios: las alertas seguidas, agrupadas, para ver cuánto duraron y si ya se revisaron. Es una forma de leer los datos, no un diagnóstico." />
+      <PatientHeader code={code} intro="Episodios: las alertas seguidas, agrupadas, para ver cuánto duraron y si ya se revisaron. Es una forma de leer los datos, no un diagnóstico." />
 
       {error && (
         <Alert variant="destructive">

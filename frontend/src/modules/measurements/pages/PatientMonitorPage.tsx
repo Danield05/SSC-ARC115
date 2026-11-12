@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { usePatient } from '../../patients/hooks/usePatient'
 import DeviationMark from '../components/DeviationMark'
 import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
@@ -55,7 +54,6 @@ function BigValue({ title, icon: Icon, value, unit, deviation, outOfRange }: Big
 
 export default function PatientMonitorPage() {
   const { code = '' } = useParams()
-  const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(30)
   const { data, loading, error, notFound } = useHistory(code, days)
   // null = la última medición; así el deslizador no se queda atrás cuando llegan datos nuevos.
@@ -121,7 +119,7 @@ export default function PatientMonitorPage() {
 
   return (
     <>
-      <PatientHeader code={code} patient={patient} intro="Recorre las mediciones con la línea de tiempo. Informativo: el sistema registra y da seguimiento, no diagnostica." />
+      <PatientHeader code={code} intro="Recorre las mediciones con la línea de tiempo. Informativo: el sistema registra y da seguimiento, no diagnostica." />
 
       {error && (
         <Alert variant="destructive">

@@ -2,7 +2,6 @@ import { ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { usePatient } from '../../patients/hooks/usePatient'
 import DelayMap from '../components/DelayMap'
 import DeviationStrip from '../components/DeviationStrip'
 import PatientHeader from '../components/PatientHeader'
@@ -16,7 +15,6 @@ import type { RangeDays } from '../types'
 /** Análisis del paciente: métricas del resumen, correlación temperatura–pulso y mapa de retardo. */
 export default function PatientAnalysisPage() {
   const { code = '' } = useParams()
-  const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(90)
   const { data, error, notFound } = useHistory(code, days)
   const { data: summary } = useSummary(code)
@@ -38,7 +36,7 @@ export default function PatientAnalysisPage() {
 
   return (
     <>
-      <PatientHeader code={code} patient={patient} intro="Métricas y gráficas derivadas de las mediciones. Informativo: el sistema registra y da seguimiento, no diagnostica." />
+      <PatientHeader code={code} intro="Métricas y gráficas derivadas de las mediciones. Informativo: el sistema registra y da seguimiento, no diagnostica." />
 
       {error && (
         <Alert variant="destructive">
