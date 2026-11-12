@@ -2,6 +2,7 @@ import { Outlet, useLocation } from 'react-router-dom'
 import { Separator } from '@/components/ui/separator'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import AppSidebar from './AppSidebar'
+import Clock from './Clock'
 import SiteFooter from './SiteFooter'
 import ThemeToggle from './ThemeToggle'
 
@@ -35,7 +36,8 @@ export default function Layout() {
           <span className="text-sm font-medium">
             {TITLES[pathname] ?? (pathname.startsWith('/patients/') ? patientTitle(pathname) : '')}
           </span>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-3">
+            <Clock />
             <ThemeToggle />
           </div>
         </header>
