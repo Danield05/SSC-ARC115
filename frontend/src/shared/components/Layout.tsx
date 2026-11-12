@@ -12,6 +12,16 @@ const TITLES: Record<string, string> = {
   '/admin/users': 'Usuarios',
 }
 
+/** Título de la barra superior en las páginas del paciente: sigue a la pestaña abierta. */
+function patientTitle(pathname: string) {
+  if (pathname.endsWith('/monitor')) return 'Monitor del paciente'
+  if (pathname.endsWith('/analisis')) return 'Análisis del paciente'
+  if (pathname.endsWith('/trazabilidad')) return 'Trazabilidad del paciente'
+  if (pathname.endsWith('/episodios')) return 'Episodios del paciente'
+  if (pathname.endsWith('/alertas')) return 'Alertas del paciente'
+  return 'Historial del paciente'
+}
+
 export default function Layout() {
   const { pathname } = useLocation()
 
@@ -23,7 +33,7 @@ export default function Layout() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 data-vertical:h-4 data-vertical:self-center" />
           <span className="text-sm font-medium">
-            {TITLES[pathname] ?? (pathname.startsWith('/patients/') ? 'Historial del paciente' : '')}
+            {TITLES[pathname] ?? (pathname.startsWith('/patients/') ? patientTitle(pathname) : '')}
           </span>
           <div className="ml-auto">
             <ThemeToggle />

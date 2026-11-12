@@ -1,8 +1,9 @@
-import { Activity, ArrowLeft, Download, FileSpreadsheet, MonitorPlay, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, ArrowLeft, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import VitalInfoDialog from '@/shared/components/VitalInfoDialog'
@@ -10,13 +11,11 @@ import type { VitalKey } from '@/shared/vitals/vitalInfo'
 import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
-import SummaryPanel from '../components/SummaryPanel'
-import TempPulseScatter from '../components/TempPulseScatter'
+import PatientTabs from '../components/PatientTabs'
 import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
 import { useExport } from '../hooks/useExport'
 import { useHistory } from '../hooks/useHistory'
-import { useSummary } from '../hooks/useSummary'
 import { formatDateTime, formatNumber, paddedDomain, spo2OutOfRange, tempOutOfRange } from '../lib/format'
 import type { Measurement, RangeDays } from '../types'
 
@@ -32,8 +31,8 @@ export default function PatientHistoryPage() {
   const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(30)
   const { data, loading, error, notFound } = useHistory(code, days)
-  const { data: summary } = useSummary(code)
-  const exporter = useExport(code, days)
+  const [anonymize, setAnonymize] = useState(false)
+  const exporter = useExport(code, days, anonymize)
   const [infoVital, setInfoVital] = useState<VitalKey>('weight')
   const [infoOpen, setInfoOpen] = useState(false)
 
@@ -96,6 +95,7 @@ export default function PatientHistoryPage() {
         Pacientes
       </Link>
       <PageHeader title={title} description={details} />
+      <PatientTabs code={code} />
 
       {error && (
         <Alert variant="destructive">
@@ -111,10 +111,13 @@ export default function PatientHistoryPage() {
               {items.length === 1 ? '1 medición' : `${items.length} mediciones`}
             </p>
           )}
-          <Button size="sm" variant="outline" nativeButton={false} render={<Link to={`/patients/${encodeURIComponent(code)}/monitor`} />}>
-            <MonitorPlay className="size-4" />
-            Vista de monitor
-          </Button>
+          <label
+            className="text-muted-foreground flex items-center gap-2 text-sm"
+            title="El archivo lleva un ID sustituto en lugar del código y los días desde la primera medición en lugar de las fechas."
+          >
+            <Switch size="sm" checked={anonymize} onCheckedChange={setAnonymize} />
+            Anonimizar
+          </label>
           <Button size="sm" disabled={exporter.busy !== null} onClick={() => exporter.download('xlsx')}>
             <FileSpreadsheet className="size-4" />
             {exporter.busy === 'xlsx' ? 'Preparando…' : 'Descargar Excel'}
@@ -175,8 +178,6 @@ export default function PatientHistoryPage() {
         </div>
       )}
 
-      {summary && <SummaryPanel summary={summary} />}
-
       {charts && thresholds && (
         <div className="grid gap-4 lg:grid-cols-2">
           <MetricChart
@@ -187,7 +188,7 @@ export default function PatientHistoryPage() {
             band={charts.tempBand}
             bandText={`Sin alerta: entre ${thresholds.temp_low_c} y ${thresholds.temp_high_c} °C`}
             domain={charts.tempDomain}
-            dimmed={loading}
+            dimmed={loading} syncId="historial"
           />
           <MetricChart
             title="Oxigenación (SpO₂)"
@@ -197,22 +198,18 @@ export default function PatientHistoryPage() {
             band={charts.spo2Band}
             bandText={`Sin alerta: ${thresholds.spo2_min} % o más`}
             domain={charts.spo2Domain}
-            dimmed={loading}
+            dimmed={loading} syncId="historial"
           />
-          <MetricChart title="Pulso" unit="lpm" decimals={0} points={charts.bpm} domain={charts.bpmDomain} dimmed={loading} />
+          <MetricChart title="Pulso" unit="lpm" decimals={0} points={charts.bpm} domain={charts.bpmDomain} dimmed={loading} syncId="historial" />
           <MetricChart
             title="Peso"
             unit="kg"
             decimals={1}
             points={charts.weight}
             domain={charts.weightDomain}
-            dimmed={loading}
+            dimmed={loading} syncId="historial"
           />
         </div>
-      )}
-
-      {items.length > 0 && (
-        <TempPulseScatter items={items} r={summary?.correlation?.temp_bpm?.r ?? null} n={summary?.correlation?.temp_bpm?.n ?? 0} />
       )}
 
       {items.length > 0 && thresholds && <MeasurementsTable items={items} thresholds={thresholds} />}

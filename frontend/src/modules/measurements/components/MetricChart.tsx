@@ -25,6 +25,8 @@ interface Props {
   domain: [number, number]
   /** Conserva el dibujo anterior, atenuado, mientras llegan datos nuevos. */
   dimmed?: boolean
+  /** Las gráficas con el mismo `syncId` comparten el cursor: al pasar sobre una se ve la misma medición en todas. */
+  syncId?: string
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -65,7 +67,7 @@ function tickFormatter(span: number) {
     )
 }
 
-export default function MetricChart({ title, unit, decimals, points, band, bandText, domain, dimmed }: Props) {
+export default function MetricChart({ title, unit, decimals, points, band, bandText, domain, dimmed, syncId }: Props) {
   const latest = points.at(-1)
   const times = points.map((p) => p.t)
   let [tMin, tMax] = times.length ? [Math.min(...times), Math.max(...times)] : [0, 1]
@@ -123,7 +125,7 @@ export default function MetricChart({ title, unit, decimals, points, band, bandT
         ) : (
           <div role="img" aria-label={summary} className={cn('transition-opacity', dimmed && 'opacity-60')}>
             <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={points} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+              <LineChart data={points} syncId={syncId} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
                 <CartesianGrid vertical={false} stroke="var(--border)" />
                 {band && (
                   <ReferenceArea y1={band.from} y2={band.to} fill="var(--chart-1)" fillOpacity={0.1} stroke="none" />

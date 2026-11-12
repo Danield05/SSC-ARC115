@@ -8,8 +8,12 @@ import ForgotPasswordPage from './modules/auth/pages/ForgotPasswordPage'
 import LoginPage from './modules/auth/pages/LoginPage'
 import DashboardPage from './modules/dashboard/pages/DashboardPage'
 import LandingPage from './modules/landing/pages/LandingPage'
+import PatientAlertsPage from './modules/measurements/pages/PatientAlertsPage'
+import PatientAnalysisPage from './modules/measurements/pages/PatientAnalysisPage'
+import PatientEpisodesPage from './modules/measurements/pages/PatientEpisodesPage'
 import PatientHistoryPage from './modules/measurements/pages/PatientHistoryPage'
 import PatientMonitorPage from './modules/measurements/pages/PatientMonitorPage'
+import PatientTraceabilityPage from './modules/measurements/pages/PatientTraceabilityPage'
 import PatientsPage from './modules/patients/pages/PatientsPage'
 import Layout from './shared/components/Layout'
 
@@ -33,6 +37,10 @@ export default function App() {
             <Route path="patients" element={<PatientsPage />} />
             <Route path="patients/:code" element={<PatientHistoryPage />} />
             <Route path="patients/:code/monitor" element={<PatientMonitorPage />} />
+            <Route path="patients/:code/analisis" element={<PatientAnalysisPage />} />
+            <Route path="patients/:code/trazabilidad" element={<PatientTraceabilityPage />} />
+            <Route path="patients/:code/episodios" element={<PatientEpisodesPage />} />
+            <Route path="patients/:code/alertas" element={<PatientAlertsPage />} />
             <Route
               path="admin/devices"
               element={

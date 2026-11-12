@@ -3,6 +3,8 @@ import type { Thresholds } from '../types'
 export const formatDateTime = (iso: string) =>
   new Date(iso).toLocaleString('es-SV', { dateStyle: 'medium', timeStyle: 'short' })
 
+export const formatDate = (iso: string) => new Date(iso).toLocaleDateString('es-SV', { dateStyle: 'medium' })
+
 export const formatNumber = (value: number, decimals: number) =>
   value.toLocaleString('es-SV', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 
