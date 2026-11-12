@@ -207,9 +207,13 @@ def load(profile: dict, start: datetime) -> tuple[str, int]:
 
 
 def main() -> None:
-    start = datetime.now(UTC).replace(hour=15, minute=0, second=0, microsecond=0) - timedelta(
-        days=DAYS
-    )
+    now = datetime.now(UTC)
+    # La última medición es a las 15:00 UTC (9:00 en El Salvador); si esa hora aún no llega hoy,
+    # se usa la de ayer para que nunca quede en el futuro.
+    last = now.replace(hour=15, minute=0, second=0, microsecond=0)
+    if last > now:
+        last -= timedelta(days=1)
+    start = last - timedelta(days=DAYS)
     for profile in (ADULT, CHILD):
         code, saved = load(profile, start)
         print(f"Paciente {code} ({profile['patient']['name']}): {saved} mediciones de ejemplo.")
