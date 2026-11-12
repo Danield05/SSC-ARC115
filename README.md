@@ -173,6 +173,8 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 
 En *Pacientes*, el botón *Historial* abre las mediciones de esa persona: filtro de 7, 30 o 90 días (o todo), la última medición de cada parámetro, una gráfica por parámetro (temperatura y SpO₂ con su rango normal sombreado; los valores fuera de rango van en rojo) y una tabla con todas las mediciones. El promotor solo ve a sus propios pacientes.
 
+La barra superior muestra un reloj con la hora de El Salvador, la misma con la que el historial y los archivos exportados muestran las mediciones.
+
 En la lista de *Pacientes* hay una caja de búsqueda: escribe el nombre, o el apellido, o el código del paciente (por ejemplo «Juan», «Orellana» o `P-0003`, también solo `0003`) y la tabla muestra a quienes coinciden, sin importar mayúsculas ni tildes. La búsqueda queda en la dirección de la página, así que sigue puesta al volver desde el historial de alguien. No hay filtro de fechas en la lista: el rango (7, 30, 90 días o todo) está dentro de cada paciente.
 
 El Excel trae las hojas *Mediciones*, *Resumen* (con fórmulas de Excel reales: promedios, mínimos, máximos, tendencia, IMC), *Correlaciones*, *Gráficas* (una por parámetro y la dispersión temperatura–pulso) y *Diccionario*. El interruptor *Anonimizar*, junto a *Descargar Excel* y *CSV*, cambia el código del paciente por un ID sustituto (`ANON-` y 8 caracteres, siempre el mismo para la misma persona) y las fechas por los días desde la primera medición del archivo. Sin él, el archivo ya va sin nombre, DUI ni contactos, pero con el código real y las fechas.
