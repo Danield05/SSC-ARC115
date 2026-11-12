@@ -1,15 +1,14 @@
-import { ArrowLeft, BellRing, CircleCheck, Percent, ShieldAlert, TriangleAlert } from 'lucide-react'
+import { BellRing, CircleCheck, Percent, ShieldAlert, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { usePatient } from '../../patients/hooks/usePatient'
 import * as api from '../api/measurementsApi'
 import AlertCard from '../components/AlertCard'
-import PatientTabs from '../components/PatientTabs'
+import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
 import { useHistory } from '../hooks/useHistory'
 import { contextOf, countReviews } from '../lib/alerts'
@@ -70,23 +69,11 @@ export default function PatientAlertsPage() {
     )
   }
 
-  const title = patient?.name ? `${patient.name} · alertas` : `Paciente ${code} · alertas`
   const percent = (n: number) => (counts.reviewed ? `${Math.round((n / counts.reviewed) * 100)} %` : '—')
 
   return (
     <>
-      <Link
-        to="/patients"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Pacientes
-      </Link>
-      <PageHeader
-        title={title}
-        description="Revisión de alertas: cada alerta se marca como confirmada, falso positivo o artefacto, con una nota opcional. Es un registro del equipo, no un diagnóstico."
-      />
-      <PatientTabs code={code} />
+      <PatientHeader code={code} patient={patient} intro="Revisión de alertas: cada alerta se marca como confirmada, falso positivo o artefacto, con una nota opcional. Es un registro del equipo, no un diagnóstico." />
 
       {error && (
         <Alert variant="destructive">
