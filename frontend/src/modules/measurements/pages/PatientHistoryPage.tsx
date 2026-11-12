@@ -7,7 +7,6 @@ import { Switch } from '@/components/ui/switch'
 import StatCard from '@/shared/components/StatCard'
 import VitalInfoDialog from '@/shared/components/VitalInfoDialog'
 import type { VitalKey } from '@/shared/vitals/vitalInfo'
-import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
 import PatientHeader from '../components/PatientHeader'
@@ -27,7 +26,6 @@ function toPoints(items: Measurement[], pick: (m: Measurement) => number, out?: 
 
 export default function PatientHistoryPage() {
   const { code = '' } = useParams()
-  const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(30)
   const { data, loading, error, notFound } = useHistory(code, days)
   const [anonymize, setAnonymize] = useState(false)
@@ -84,7 +82,6 @@ export default function PatientHistoryPage() {
     <>
       <PatientHeader
         code={code}
-        patient={patient}
         extra={latest ? `última medición ${formatDateTime(latest.ts)}` : undefined}
       />
 

@@ -5,7 +5,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import StatCard from '@/shared/components/StatCard'
 import { useAuth } from '../../auth/hooks/useAuth'
-import { usePatient } from '../../patients/hooks/usePatient'
 import * as api from '../api/measurementsApi'
 import AlertCard from '../components/AlertCard'
 import PatientHeader from '../components/PatientHeader'
@@ -22,7 +21,6 @@ type Filter = 'all' | 'pending'
 /** Revisión de alertas: el equipo etiqueta cada una como confirmada, falso positivo o artefacto. */
 export default function PatientAlertsPage() {
   const { code = '' } = useParams()
-  const patient = usePatient(code)
   const { user } = useAuth()
   const canReview = user?.role === 'admin' || user?.role === 'promoter'
   const [days, setDays] = useState<RangeDays>(90)
@@ -73,7 +71,7 @@ export default function PatientAlertsPage() {
 
   return (
     <>
-      <PatientHeader code={code} patient={patient} intro="Revisión de alertas: cada alerta se marca como confirmada, falso positivo o artefacto, con una nota opcional. Es un registro del equipo, no un diagnóstico." />
+      <PatientHeader code={code} intro="Revisión de alertas: cada alerta se marca como confirmada, falso positivo o artefacto, con una nota opcional. Es un registro del equipo, no un diagnóstico." />
 
       {error && (
         <Alert variant="destructive">

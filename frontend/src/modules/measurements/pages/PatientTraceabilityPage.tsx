@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import StatCard from '@/shared/components/StatCard'
-import { usePatient } from '../../patients/hooks/usePatient'
 import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
 import TraceabilityTable from '../components/TraceabilityTable'
@@ -16,7 +15,6 @@ const EMPTY: Measurement[] = []
 /** Trazabilidad y sincronización: cuándo se midió cada valor y cuándo llegó a la nube. */
 export default function PatientTraceabilityPage() {
   const { code = '' } = useParams()
-  const patient = usePatient(code)
   const [days, setDays] = useState<RangeDays>(30)
   const { data, error, notFound } = useHistory(code, days)
   const items = data?.items ?? EMPTY
@@ -50,7 +48,7 @@ export default function PatientTraceabilityPage() {
 
   return (
     <>
-      <PatientHeader code={code} patient={patient} intro="Trazabilidad y sincronización: cuándo se midió cada valor y cuándo llegó a la nube. Muestra que el dispositivo guarda sin conexión y envía después." />
+      <PatientHeader code={code} intro="Trazabilidad y sincronización: cuándo se midió cada valor y cuándo llegó a la nube. Muestra que el dispositivo guarda sin conexión y envía después." />
 
       {error && (
         <Alert variant="destructive">
