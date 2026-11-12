@@ -1,14 +1,13 @@
-import { Activity, ArrowLeft, BellRing, Clock, ShieldAlert } from 'lucide-react'
+import { Activity, BellRing, Clock, ShieldAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import { usePatient } from '../../patients/hooks/usePatient'
 import EpisodeCard from '../components/EpisodeCard'
 import EpisodeTimeline from '../components/EpisodeTimeline'
-import PatientTabs from '../components/PatientTabs'
+import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
 import { useHistory } from '../hooks/useHistory'
 import { findEpisodes, reviewOf } from '../lib/episodes'
@@ -47,24 +46,12 @@ export default function PatientEpisodesPage() {
     )
   }
 
-  const title = patient?.name ? `${patient.name} · episodios` : `Paciente ${code} · episodios`
   // De la más reciente a la más antigua; el número es el orden cronológico.
   const listed = episodes.map((ep, i) => ({ ep, number: i + 1 })).reverse()
 
   return (
     <>
-      <Link
-        to="/patients"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Pacientes
-      </Link>
-      <PageHeader
-        title={title}
-        description="Episodios: las alertas seguidas, agrupadas, para ver cuánto duraron y si ya se revisaron. Es una forma de leer los datos, no un diagnóstico."
-      />
-      <PatientTabs code={code} />
+      <PatientHeader code={code} patient={patient} intro="Episodios: las alertas seguidas, agrupadas, para ver cuánto duraron y si ya se revisaron. Es una forma de leer los datos, no un diagnóstico." />
 
       {error && (
         <Alert variant="destructive">

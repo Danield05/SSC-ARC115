@@ -1,11 +1,10 @@
-import { ArrowLeft, Clock, Database, ShieldAlert, Wifi, WifiOff } from 'lucide-react'
+import { Clock, Database, ShieldAlert, Wifi, WifiOff } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import { usePatient } from '../../patients/hooks/usePatient'
-import PatientTabs from '../components/PatientTabs'
+import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
 import TraceabilityTable from '../components/TraceabilityTable'
 import { useHistory } from '../hooks/useHistory'
@@ -47,23 +46,11 @@ export default function PatientTraceabilityPage() {
     )
   }
 
-  const title = patient?.name ? `${patient.name} · trazabilidad` : `Paciente ${code} · trazabilidad`
   const percent = (n: number) => (stats.known ? `${Math.round((n / stats.known) * 100)} %` : '—')
 
   return (
     <>
-      <Link
-        to="/patients"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Pacientes
-      </Link>
-      <PageHeader
-        title={title}
-        description="Trazabilidad y sincronización: cuándo se midió cada valor y cuándo llegó a la nube. Muestra que el dispositivo guarda sin conexión y envía después."
-      />
-      <PatientTabs code={code} />
+      <PatientHeader code={code} patient={patient} intro="Trazabilidad y sincronización: cuándo se midió cada valor y cuándo llegó a la nube. Muestra que el dispositivo guarda sin conexión y envía después." />
 
       {error && (
         <Alert variant="destructive">

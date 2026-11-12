@@ -1,17 +1,16 @@
-import { Activity, ArrowLeft, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import PageHeader from '@/shared/components/PageHeader'
 import StatCard from '@/shared/components/StatCard'
 import VitalInfoDialog from '@/shared/components/VitalInfoDialog'
 import type { VitalKey } from '@/shared/vitals/vitalInfo'
 import { usePatient } from '../../patients/hooks/usePatient'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
-import PatientTabs from '../components/PatientTabs'
+import PatientHeader from '../components/PatientHeader'
 import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
 import { useExport } from '../hooks/useExport'
@@ -80,22 +79,14 @@ export default function PatientHistoryPage() {
   const items = data?.items ?? []
   const latest = items.at(-1)
   const thresholds = data?.thresholds
-  const title = patient?.name || `Paciente ${code}`
-  const details = [code, patient?.age != null ? `${patient.age} años` : '', latest ? `última medición ${formatDateTime(latest.ts)}` : '']
-    .filter(Boolean)
-    .join(' · ')
 
   return (
     <>
-      <Link
-        to="/patients"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Pacientes
-      </Link>
-      <PageHeader title={title} description={details} />
-      <PatientTabs code={code} />
+      <PatientHeader
+        code={code}
+        patient={patient}
+        extra={latest ? `última medición ${formatDateTime(latest.ts)}` : undefined}
+      />
 
       {error && (
         <Alert variant="destructive">

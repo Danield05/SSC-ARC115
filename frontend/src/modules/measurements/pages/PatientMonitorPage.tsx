@@ -1,4 +1,4 @@
-import { Activity, ArrowLeft, ChevronLeft, ChevronRight, HeartPulse, Pause, Play, Scale, ShieldAlert, Thermometer, TriangleAlert } from 'lucide-react'
+import { Activity, ChevronLeft, ChevronRight, HeartPulse, Pause, Play, Scale, ShieldAlert, Thermometer, TriangleAlert } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -7,10 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import PageHeader from '@/shared/components/PageHeader'
 import { usePatient } from '../../patients/hooks/usePatient'
 import DeviationMark from '../components/DeviationMark'
-import PatientTabs from '../components/PatientTabs'
+import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
 import Sparkline from '../components/Sparkline'
 import { useHistory } from '../hooks/useHistory'
@@ -119,22 +118,10 @@ export default function PatientMonitorPage() {
   const current = items[index]
   const thresholds = data?.thresholds
   const alertCount = items.filter((m) => m.alert).length
-  const title = patient?.name ? `${patient.name} · vista de monitor` : `Paciente ${code} · vista de monitor`
 
   return (
     <>
-      <Link
-        to="/patients"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Pacientes
-      </Link>
-      <PageHeader
-        title={title}
-        description="Recorre las mediciones con la línea de tiempo. Informativo: el sistema registra y da seguimiento, no diagnostica."
-      />
-      <PatientTabs code={code} />
+      <PatientHeader code={code} patient={patient} intro="Recorre las mediciones con la línea de tiempo. Informativo: el sistema registra y da seguimiento, no diagnostica." />
 
       {error && (
         <Alert variant="destructive">

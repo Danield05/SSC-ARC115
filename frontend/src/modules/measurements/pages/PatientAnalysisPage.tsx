@@ -1,12 +1,11 @@
-import { ArrowLeft, ShieldAlert } from 'lucide-react'
+import { ShieldAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import PageHeader from '@/shared/components/PageHeader'
 import { usePatient } from '../../patients/hooks/usePatient'
 import DelayMap from '../components/DelayMap'
 import DeviationStrip from '../components/DeviationStrip'
-import PatientTabs from '../components/PatientTabs'
+import PatientHeader from '../components/PatientHeader'
 import RangeFilter from '../components/RangeFilter'
 import SummaryPanel from '../components/SummaryPanel'
 import TempPulseScatter from '../components/TempPulseScatter'
@@ -36,22 +35,10 @@ export default function PatientAnalysisPage() {
   }
 
   const items = data?.items ?? []
-  const title = patient?.name ? `${patient.name} · análisis` : `Paciente ${code} · análisis`
 
   return (
     <>
-      <Link
-        to="/patients"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" />
-        Pacientes
-      </Link>
-      <PageHeader
-        title={title}
-        description="Métricas y gráficas derivadas de las mediciones. Informativo: el sistema registra y da seguimiento, no diagnostica."
-      />
-      <PatientTabs code={code} />
+      <PatientHeader code={code} patient={patient} intro="Métricas y gráficas derivadas de las mediciones. Informativo: el sistema registra y da seguimiento, no diagnostica." />
 
       {error && (
         <Alert variant="destructive">
