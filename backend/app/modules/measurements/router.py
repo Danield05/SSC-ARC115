@@ -10,12 +10,16 @@ from app.modules.auth.dependencies import CurrentUser, require_roles
 from app.modules.devices import service as devices_service
 from app.modules.measurements import service
 from app.modules.measurements.schemas import (
+    AlertsSummaryOut,
+    AssignIn,
+    AssignResult,
     BatchResult,
     HistoryOut,
     MeasurementBatch,
     ReviewIn,
     ReviewOut,
     SummaryOut,
+    UnassignedOut,
 )
 from app.modules.notifications import service as notifications
 from app.modules.patients.service import PatientNotFoundError
@@ -48,6 +52,32 @@ def receive_batch(body: MeasurementBatch, x_api_key: str | None = Header(default
         except notifications.MailError:
             logger.error("No se envió el correo del lote de %s", device["device_id"])
     return result
+
+
+@router.get("/alerts-summary", response_model=AlertsSummaryOut)
+def alerts_summary(user: CurrentUser = Depends(any_role)):  # noqa: B008
+    """Tarjeta «Alertas» del resumen: las de los últimos 7 días que el rol puede ver."""
+    return service.alerts_summary(user.role, user.email)
+
+
+@router.get("/unassigned", response_model=list[UnassignedOut])
+def list_unassigned(user: CurrentUser = Depends(any_role)):  # noqa: B008
+    """Bandeja «Sin asignar»: mediciones de sus dispositivos que aún no tienen paciente."""
+    return service.unassigned(user.role, user.email)
+
+
+@router.post("/unassigned/assign", response_model=AssignResult)
+def assign_unassigned(body: AssignIn, user: CurrentUser = Depends(reviewer_role)):  # noqa: B008
+    try:
+        assigned, conflicts, not_found = service.assign_unassigned(
+            body.patient_code,
+            [(i.device_id, i.ts) for i in body.items],
+            user.role,
+            user.email,
+        )
+    except PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+    return {"assigned": assigned, "conflicts": conflicts, "not_found": not_found}
 
 
 @history_router.get("/{patient_code}/measurements", response_model=HistoryOut)

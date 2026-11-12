@@ -34,6 +34,34 @@ class DevicePatientsOut(BaseModel):
     patients: list[str]
 
 
+class MeasureIn(BaseModel):
+    patient_code: str = Field(pattern=r"^[A-Za-z0-9-]{1,32}$")
+
+
+class MeasureOrderOut(BaseModel):
+    """Orden «Medir a este paciente» y en qué punto va (la web la consulta mientras espera)."""
+
+    command_id: str
+    patient_code: str
+    # pendiente → tomada → completada; o cancelada / expirada.
+    status: str
+    created_at: str
+    expires_at: str
+    taken_at: str | None = None
+    completed_at: str | None = None
+    ts: str | None = None  # hora de la medición que la completó
+
+
+class CommandOut(BaseModel):
+    command_id: str
+    patient_code: str
+
+
+class CommandPollOut(BaseModel):
+    device_id: str
+    command: CommandOut | None = None
+
+
 class ApiKeyOut(BaseModel):
     device_id: str
     api_key: str

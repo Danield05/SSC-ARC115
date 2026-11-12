@@ -12,3 +12,7 @@
 // (la clave se muestra una sola vez).
 #define DEVICE_ID "ESP32-GP03-01"
 #define API_KEY "clave-del-dispositivo"
+
+// PIN de la página local del aparato (http://<IP que muestra la pantalla>): de 4 caracteres o más,
+// solo números es lo más cómodo. Sin él la página queda apagada. Cámbialo por uno propio.
+#define LOCAL_PIN "1234"

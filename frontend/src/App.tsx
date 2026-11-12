@@ -14,6 +14,7 @@ import PatientEpisodesPage from './modules/measurements/pages/PatientEpisodesPag
 import PatientHistoryPage from './modules/measurements/pages/PatientHistoryPage'
 import PatientMonitorPage from './modules/measurements/pages/PatientMonitorPage'
 import PatientTraceabilityPage from './modules/measurements/pages/PatientTraceabilityPage'
+import UnassignedPage from './modules/measurements/pages/UnassignedPage'
 import PatientsPage from './modules/patients/pages/PatientsPage'
 import Layout from './shared/components/Layout'
 
@@ -41,6 +42,7 @@ export default function App() {
             <Route path="patients/:code/trazabilidad" element={<PatientTraceabilityPage />} />
             <Route path="patients/:code/episodios" element={<PatientEpisodesPage />} />
             <Route path="patients/:code/alertas" element={<PatientAlertsPage />} />
+            <Route path="sin-asignar" element={<UnassignedPage />} />
             <Route
               path="admin/devices"
               element={
