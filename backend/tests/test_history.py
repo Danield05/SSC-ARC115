@@ -52,6 +52,14 @@ def test_history_is_sorted_oldest_first_with_thresholds(client, admin, send):
     )
 
 
+def test_history_includes_received_at(client, admin, send):
+    send(_record("P-0001", 1))
+    item = _history(client, admin).json()["items"][0]
+    # El servidor la fija al recibir el lote, así que nunca es anterior a la medición.
+    assert item["received_at"].endswith("Z")
+    assert item["received_at"] >= item["ts"]
+
+
 def test_history_filters_by_range(client, admin, send):
     send(*[_record("P-0001", n) for n in range(1, 8)])
     r = _history(client, admin, **{"from": "2026-10-03T00:00:00Z", "to": "2026-10-05T23:59:59Z"})

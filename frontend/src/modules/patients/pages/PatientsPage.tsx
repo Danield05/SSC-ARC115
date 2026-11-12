@@ -1,15 +1,17 @@
-import { CircleCheck, LineChart, Pencil, Plus } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { CircleCheck, LineChart, Pencil, Plus, Search, X } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import PatientForm from '../components/PatientForm'
 import { usePatients } from '../hooks/usePatients'
+import { matchesPatient } from '../lib/search'
 import type { Patient } from '../types'
 
 const formatDate = (iso: string) =>
@@ -21,6 +23,12 @@ export default function PatientsPage() {
   const { patients, loading, error, create, update } = usePatients()
   const [dialog, setDialog] = useState<{ editing?: Patient } | null>(null)
   const [notice, setNotice] = useState('')
+  // La búsqueda vive en la URL (?q=): al volver desde el historial de un paciente sigue puesta.
+  const [params, setParams] = useSearchParams()
+  const query = params.get('q') ?? ''
+  const setQuery = (value: string) => setParams(value ? { q: value } : {}, { replace: true })
+  const shown = patients.filter((p) => matchesPatient(p, query))
+  const searching = query.trim() !== ''
 
   return (
     <>
@@ -49,6 +57,40 @@ export default function PatientsPage() {
         </Alert>
       )}
 
+      {!loading && patients.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <div className="relative w-full max-w-md">
+            <Search
+              aria-hidden
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre, apellido o código"
+              aria-label="Buscar paciente por nombre, apellido o código"
+              className="px-9 [&::-webkit-search-cancel-button]:hidden"
+            />
+            {searching && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Borrar la búsqueda"
+                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md"
+              >
+                <X className="size-4" />
+              </button>
+            )}
+          </div>
+          <p className="text-muted-foreground text-sm" aria-live="polite">
+            {searching
+              ? `${shown.length} de ${patients.length} pacientes`
+              : `${patients.length} ${patients.length === 1 ? 'paciente' : 'pacientes'}`}
+          </p>
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -64,6 +106,16 @@ export default function PatientsPage() {
                 primeras mediciones. Después podrás completar sus datos y ver sus gráficas.
               </p>
             </div>
+          ) : shown.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <p className="text-muted-foreground max-w-md text-sm">
+                Ningún paciente coincide con «{query.trim()}». Prueba con solo un nombre o un apellido, o con el
+                código (por ejemplo P-0003).
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setQuery('')}>
+                Borrar la búsqueda
+              </Button>
+            </div>
           ) : (
             <Table>
               <TableHeader>
@@ -77,7 +129,7 @@ export default function PatientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {patients.map((p) => (
+                {shown.map((p) => (
                   <TableRow key={p.patient_code}>
                     <TableCell className="font-mono text-xs">{p.patient_code}</TableCell>
                     <TableCell>{p.name || <span className="text-muted-foreground">Sin nombre</span>}</TableCell>

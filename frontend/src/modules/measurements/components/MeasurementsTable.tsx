@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import { formatDateTime, formatNumber, spo2OutOfRange, tempOutOfRange } from '../lib/format'
+import { REVIEW_BADGE, REVIEW_LABEL } from '../lib/alerts'
 import { deviationClass, deviationsOf } from '../lib/deviation'
 import type { Measurement, Thresholds } from '../types'
 import DeviationMark from './DeviationMark'
@@ -87,14 +88,21 @@ export default function MeasurementsTable({ items, thresholds }: Props) {
                   {formatNumber(m.weight_kg, 1)} kg <DeviationMark deviation={deviations.weight_kg[i]} />
                 </TableCell>
                 <TableCell>
-                  {m.alert ? (
-                    <Badge variant="destructive">
-                      <TriangleAlert />
-                      Alerta
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline">Normal</Badge>
-                  )}
+                  <div className="flex flex-wrap items-center gap-1">
+                    {m.alert ? (
+                      <Badge variant="destructive">
+                        <TriangleAlert />
+                        Alerta
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Normal</Badge>
+                    )}
+                    {m.review && (
+                      <Badge variant={REVIEW_BADGE[m.review.status]} title={m.review.note || undefined}>
+                        {REVIEW_LABEL[m.review.status]}
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="font-mono text-xs">{m.device_id}</TableCell>
               </TableRow>
