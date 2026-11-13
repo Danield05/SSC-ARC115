@@ -15,9 +15,7 @@
 #define PIN_LED_RED 13
 #define PIN_BUZZER 27
 #define PIN_NTC 35         // termistor NTC: ADC1, solo entrada. Cableado: 3V3 → NTC → GPIO35 → 10 kΩ → GND
-#define PIN_BTN_NEXT 4     // botón 1: siguiente (pulsación larga: tara de la báscula)
-#define PIN_BTN_OK 26      // botón 2: aceptar (pulsación larga: cancelar). PROVISIONAL: el prototipo
-                           // solo tiene un botón; cablear el segundo a GPIO26 y GND.
+#define PIN_BTN 15         // único botón, a GND (corta: aceptar/medir; larga: tara, cancelar o descartar)
 
 #define I2C_CLOCK_HZ 100000  // I2C estándar (100 kHz)
 #define OLED_ADDRESS 0x3C

@@ -7,14 +7,14 @@
 //
 // Flujo: REPOSO → MEDIR_PESO → MEDIR_TEMP → MEDIR_OXIMETRO → RESULTADOS → REPOSO
 //   El dispositivo no elige paciente. La medición empieza de tres formas:
-//     · Botón 2 (OK) en reposo: sin paciente. Queda en la bandeja «Sin asignar» de la web y el
+//     · Botón (pulsación corta) en reposo: sin paciente. Queda en la bandeja «Sin asignar» de la web y el
 //       promotor la asigna cuando hay internet.
 //     · Página local del aparato (webpage.h): desde un celular en la misma red se abre la IP que
 //       muestra la pantalla de reposo, se escribe el PIN y el código del paciente. No usa Internet.
 //     · Orden «Medir» de la web: en reposo y con Wi-Fi, el aparato pregunta a la API cada pocos
 //       segundos; si hay una orden, mide a ese paciente y la medición llega ya asignada.
-//   Botón 1: pulsación larga en reposo = tara de la báscula. Botón 2: OK acepta, pulsación larga
-//   cancela.
+//   Un solo botón. Reposo: corta = medir, larga = tara de la báscula. Midiendo: larga = cancelar.
+//   Resultados: corta = guardar, larga = descartar.
 // Antes de compilar: copiar secrets.example.h como secrets.h y llenarlo.
 
 #include "alerts.h"
@@ -126,7 +126,7 @@ static void drawIdle() {
   const char* footer = !storageOk                  ? "Error de memoria"
                        : storage::isFull()         ? "Memoria llena, sincroniza"
                        : (missingSensors != 0)     ? "Sensor sin responder"
-                                                   : "OK: medir  B1 largo: tara";
+                                                   : "Corto:medir Largo:tara";
   char ip[28];
   display::show("GP03 Monitor", webpage::addressText(ip, sizeof(ip)) ? ip : wifiText(), l2, l3, footer);
 }
@@ -134,11 +134,11 @@ static void drawIdle() {
 static void idleState(input::Event ev) {
   if (due(500)) drawIdle();
   const char *why1, *why2;
-  if (ev == input::Event::NEXT_LONG) {
+  if (ev == input::Event::LONG) {
     sensors::tare();
     alerts::beep();
     showMessage("Bascula en cero", "Tara hecha", 1200);
-  } else if (ev == input::Event::OK_SHORT) {
+  } else if (ev == input::Event::SHORT) {
     if (measureBlocked(why1, why2)) showMessage(why1, why2, 2500);
     else startMeasurement("", "");  // sin paciente: va a la bandeja «Sin asignar»
   } else if (ev == input::Event::NONE) {
@@ -163,7 +163,7 @@ static void cancelMeasurement(const char* reason) {
 }
 
 static void weightState(input::Event ev) {
-  if (ev == input::Event::OK_LONG) return cancelMeasurement("");
+  if (ev == input::Event::LONG) return cancelMeasurement("");
   if (timedOut()) return cancelMeasurement("Sin peso estable");
   float stable;
   if (sensors::weightStep(stable, liveWeight)) {
@@ -181,7 +181,7 @@ static void weightState(input::Event ev) {
 }
 
 static void temperatureState(input::Event ev) {
-  if (ev == input::Event::OK_LONG) return cancelMeasurement("");
+  if (ev == input::Event::LONG) return cancelMeasurement("");
   if (timedOut()) return cancelMeasurement("Sin lectura de temperatura");
   float value;
   int progress;
@@ -201,7 +201,7 @@ static void temperatureState(input::Event ev) {
 }
 
 static void oximeterState(input::Event ev) {
-  if (ev == input::Event::OK_LONG) return cancelMeasurement("");
+  if (ev == input::Event::LONG) return cancelMeasurement("");
   if (timedOut()) return cancelMeasurement("Sin lectura de SpO2");
   int spo2, bpm, progress;
   bool finger;
@@ -235,15 +235,15 @@ static void saveCurrent() {
 }
 
 static void resultsState(input::Event ev) {
-  if (ev == input::Event::OK_SHORT) return saveCurrent();
-  if (ev == input::Event::NEXT_SHORT || ev == input::Event::OK_LONG)
+  if (ev == input::Event::SHORT) return saveCurrent();
+  if (ev == input::Event::LONG)
     return showMessage("Descartado", "No se guardo", 1500);
   if (due(500)) {
     char l1[28], l2[28];
     snprintf(l1, sizeof(l1), "%.1f kg  %.1f C", current.weightKg, current.tempC);
     snprintf(l2, sizeof(l2), "SpO2 %d%%  Pulso %d", current.spo2, current.bpm);
     display::show(current.alert ? "ALERTA" : "Resultado", l1, l2,
-                  current.alert ? "Fuera de rango" : "Dentro del rango", "OK: guardar  B1: borrar");
+                  current.alert ? "Fuera de rango" : "Dentro del rango", "Corto:ok Largo:borrar");
   }
 }
 

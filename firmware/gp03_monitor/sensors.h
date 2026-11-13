@@ -12,7 +12,7 @@ enum SensorBit : uint8_t { SENSOR_OLED = 1, SENSOR_NTC = 2, SENSOR_MAX = 4, SENS
 uint8_t begin();
 bool oledFound();
 
-// Peso: tara con la báscula vacía (al arrancar y con pulsación larga del botón 1).
+// Peso: tara con la báscula vacía (al arrancar y con pulsación larga del botón).
 void tare();
 void weightStart();
 // true cuando el valor estuvo estable WEIGHT_WINDOW_MS; `live` es la lectura actual.
