@@ -19,7 +19,7 @@ app = FastAPI(title="SSC-ARC115 API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.allowed_origin],
-    allow_methods=["GET", "POST", "PATCH"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["authorization", "content-type", "x-api-key"],
     expose_headers=["content-disposition"],
 )
