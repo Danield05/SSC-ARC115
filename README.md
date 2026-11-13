@@ -16,6 +16,14 @@ Frontend web ── consulta ──► la misma API (historial y gráficas por p
 
 El dispositivo trabaja sin internet: guarda todo en su memoria interna y sincroniza el lote pendiente cuando vuelve el Wi-Fi, sin duplicar registros.
 
+**A quién se mide.** El aparato no elige paciente. Hay tres formas de empezar una medición, según haya o no red:
+
+| Situación | Cómo | Qué pasa con la medición |
+|---|---|---|
+| Hay internet | En la web, botón **Medir** en el paciente. La API guarda la orden y el aparato la consulta cada 5 s | Llega ya asignada a ese paciente |
+| Misma red Wi-Fi (con o sin internet) | **Página del aparato**: se abre su IP en un navegador, se escribe el código del paciente y un PIN | Queda guardada a nombre de ese paciente y se sincroniza cuando haya internet |
+| Sin red | Botón **OK** del aparato | Se guarda sin paciente; al sincronizar cae en la bandeja **Sin asignar** y se asigna desde la web |
+
 ## 🗂️ Estructura del repositorio
 
 | Carpeta | Contenido |
@@ -29,11 +37,11 @@ Cada módulo del backend y del frontend se organiza por funcionalidad (dispositi
 
 ## 🧰 Tecnologías
 
-ESP32 · MLX90614 (temperatura infrarroja) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
+ESP32 · termistor NTC (temperatura) · MAX30102 (SpO₂ y pulso) · celdas de carga + HX711 (peso) · Python + FastAPI · AWS (API Gateway, Lambda, DynamoDB) · SMTP de Gmail · React + Vite + Tailwind CSS (shadcn/ui) · GitHub Actions y GitHub Pages.
 
 ## 📊 Estado
 
-En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, alta de usuarios por invitación con contraseña provisional por correo y recuperación de contraseña, portada pública, códigos automáticos de pacientes y dispositivos, administración de dispositivos y usuarios, recepción de mediciones (`POST /measurements`), CI y despliegue automático (API en AWS y frontend en GitHub Pages con dominio propio). En curso: correo al promotor, gráficas por paciente y firmware. Entrega: 15 de noviembre de 2026.
+En desarrollo, Etapa 2. Hecho: base del backend y del frontend, inicio de sesión con roles, alta de usuarios por invitación con contraseña provisional por correo y recuperación de contraseña, portada pública, códigos automáticos de pacientes y dispositivos, administración de dispositivos y usuarios, recepción de mediciones (`POST /measurements`), CI y despliegue automático (API en AWS y frontend en GitHub Pages con dominio propio). Hecho también: correo al promotor por lote y el historial y análisis por paciente (seis pestañas, Excel y CSV). Nuevo (rama `feature/mediciones-bandeja`, aún sin desplegar): bandeja **Sin asignar**, orden **Medir a este paciente** desde la web, página local del aparato con PIN y tarjeta de **Alertas** del resumen con datos reales. En curso: probar el firmware en la placa, calibrar peso y temperatura, y adaptar la lectura de temperatura al termistor. Entrega: 15 de noviembre de 2026.
 
 ## ☁️ Despliegue
 
@@ -158,9 +166,9 @@ Abre <http://localhost:5173>: verás la portada del proyecto; el botón *Ingresa
 
 | Rol | Qué puede hacer |
 |---|---|
-| Administrador | Gestiona dispositivos y usuarios; ve todo |
-| Promotor | Ve solo los dispositivos que tienen su correo como promotor |
-| Evaluador | Solo lectura de dispositivos; sin edición |
+| Administrador | Gestiona dispositivos y usuarios; ve todo; mide y asigna a cualquier paciente |
+| Promotor | Ve solo los dispositivos que tienen su correo como promotor y sus pacientes; mide y asigna dentro de eso |
+| Evaluador | Solo lectura: no mide, no asigna ni revisa alertas |
 
 ### ✉️ Cómo se agrega a una persona del equipo
 
@@ -193,6 +201,16 @@ El historial de cada paciente tiene seis pestañas, cada una con su propia ruta:
 
 Para verlo con datos: `python scripts/seed_demo_measurements.py --local` crea dos pacientes de ejemplo (un adulto con un episodio febril, un episodio de desaturación, una bradicardia, una lectura mala de SpO₂ y un día con varias mediciones, y un niño de 9 años con otra línea base). Cada uno tiene un periodo sin conexión (sus mediciones llegan en un solo lote) y tres alertas de la adulta ya vienen revisadas. Los valores llevan una pequeña variación natural, la misma en cada carga.
 
+### 🎯 Medir a un paciente y bandeja «Sin asignar»
+
+**Botón Medir.** En el encabezado de cada paciente (administrador y promotor) el botón **Medir** deja una orden para el aparato. La ventana muestra en qué punto va: *Esperando al aparato…* (la orden vence a los 2 minutos si el aparato no la toma), *El aparato está midiendo* (5 minutos para medir; al terminar se pulsa **OK** en el aparato) y *Medición recibida*. Si hay varios aparatos se elige con cuál. La ventana se actualiza sola cada 2 segundos y, al llegar la medición, el historial se refresca.
+
+**Sin asignar** (`/sin-asignar`, en la barra lateral). Reúne las mediciones que llegaron sin paciente, agrupadas por visita (las del mismo aparato con menos de 15 minutos entre sí). Se marcan las que son de una persona, se elige el paciente y se pulsa **Asignar**. Si el paciente ya tenía una medición con exactamente la misma hora, esa no se mueve y se avisa. Un reenvío del aparato nunca duplica ni vuelve a la bandeja una medición ya asignada. El correo al promotor también llega con las mediciones sin asignar (rotuladas «Sin asignar» y el aparato).
+
+**Resumen.** La tarjeta *Alertas* cuenta las de los últimos 7 días que el rol puede ver (el promotor, solo las suyas) y las que están sin asignar, con un enlace a la más reciente.
+
+Un promotor solo puede medir o asignar a pacientes que ve (los que registró o que midieron sus aparatos); un paciente registrado por un administrador lo mide el administrador la primera vez.
+
 ### 🔢 Códigos automáticos
 
 - **Pacientes:** el sistema asigna el código (`P-0001`, `P-0002`…). Al registrar son obligatorios el nombre, la edad y el sexo (M/F, para calcular la categoría del IMC); también se pueden guardar estatura, teléfono, correo y dirección. El DUI solo se pide a mayores de 18 años; para un menor de edad son obligatorios el nombre y el DUI de su responsable. El dispositivo solo guarda el código.
@@ -224,17 +242,23 @@ Si `docker compose` falla en Windows con `docker-credential-desktop`, agrega `C:
 
 El código está en `firmware/gp03_monitor/` (C++, Arduino framework). Mide peso, temperatura y SpO₂/pulso, muestra el resultado en la OLED, lo guarda en la flash interna (LittleFS) y lo sincroniza por lotes cuando hay Wi-Fi. Sin internet funciona igual, con una salvedad: la hora sale de NTP, así que el equipo necesita Wi-Fi al menos una vez después de encenderse (sin hora muestra «Sin hora» y no mide).
 
-**Preparar el IDE (una vez):** Arduino IDE → núcleo *esp32 de Espressif* (probado con 3.3.12) y placa *ESP32 Dev Module*. Librerías (Gestor de bibliotecas): ArduinoJson 7.4.3, HX711 0.6.6 (Bogdan Necula), SparkFun MAX3010x Pulse and Proximity Sensor Library 1.1.2, Adafruit MLX90614 Library 2.1.7, Adafruit SSD1306 2.5.17 y Adafruit GFX Library 1.13.0.
+**Sensores.** MAX30102 (SpO₂ y pulso) y OLED por I2C (0x57 y 0x3C), celdas de carga con HX711 (peso) y un **termistor NTC de 100 kΩ (β = 3950)** para la temperatura, en divisor de tensión con una resistencia fija de 10 kΩ y leído por el ADC (GPIO35 en el prototipo). El termistor mide **por contacto**: se apoya en la piel, tarda unos segundos en llegar a su temperatura y el firmware da la lectura por buena cuando se estabiliza (promedio de 16 lecturas del ADC por muestra y poca variación durante 4 s). Una lectura solo cuenta si cae entre 25 y 45 °C (con el sensor al aire no hay lectura ni alerta). Si el ADC queda pegado a un extremo, el aparato lo da por ausente y la pantalla dice «NTC». Su lectura depende del contacto y de la calibración: `TEMP_OFFSET_C` (en `config.h`) trae por ahora `-20`, un valor heredado del código de Roberto que **hay que recalibrar** comparando al menos 10 mediciones con un termómetro clínico (un NTC bien cableado no debería necesitar restar 20 °C: si hace falta, revisar el divisor). Límpialo entre pacientes.
 
-**Credenciales:** copiar `secrets.example.h` como `secrets.h` (junto al `.ino`; no se sube a git) y llenar `WIFI_SSID`, `WIFI_PASSWORD`, `API_URL` (dirección base de la API, sin ruta), `DEVICE_ID` y `API_KEY` (la clave se muestra una sola vez al dar de alta el dispositivo en la página).
+**Preparar el IDE (una vez):** Arduino IDE → núcleo *esp32 de Espressif* (probado con 3.3.12) y placa *ESP32 Dev Module*. Librerías (Gestor de bibliotecas): ArduinoJson 7.4.3, HX711 0.6.6 (Bogdan Necula), SparkFun MAX3010x Pulse and Proximity Sensor Library 1.1.2, Adafruit SSD1306 2.5.17, Adafruit GFX Library 1.13.0 y Adafruit BusIO 1.17.4.
 
-**Pines, umbrales y calibración:** todo en `config.h`. Los pines son una propuesta y hay que confirmarlos con la placa perforada. Para subir el programa conviene elegir la partición *No OTA (2MB APP/2MB SPIFFS)*; con la partición por defecto el programa ocupa el 88 % de su espacio. Subir con «borrar toda la flash» borra los registros guardados.
+**Credenciales:** copiar `secrets.example.h` como `secrets.h` (junto al `.ino`; no se sube a git) y llenar `WIFI_SSID` (red de 2.4 GHz), `WIFI_PASSWORD`, `API_URL` (dirección base de la API, sin ruta), `DEVICE_ID` y `API_KEY` (la clave se muestra una sola vez al dar de alta el dispositivo en la página) y `LOCAL_PIN` (PIN de 4 caracteres o más para la página del aparato; sin él esa página queda apagada).
 
-**Uso:** el botón 1 recorre los pacientes (en reposo, pulsación larga = tara de la báscula) y el botón 2 acepta (pulsación larga = cancelar). LED verde = todo bien, amarillo = aviso (pendientes por enviar, memoria al 80 %, sin hora o un sensor sin responder), rojo con buzzer = valor fuera de umbral.
+**Pines, umbrales y calibración:** todo en `config.h`. Los pines son una propuesta y hay que confirmarlos con la placa perforada. El factor de la báscula (`HX711_SCALE_FACTOR`, hoy 1.0 = sin calibrar) se obtiene con `firmware/pruebas/hx711_calibracion` y masas patrón. Con la partición por defecto el programa ocupa el 90 % de su espacio; si algún día no cabe, elegir *No OTA (2MB APP/2MB SPIFFS)*. Subir con «borrar toda la flash» borra los registros guardados.
 
-**Pruebas por separado** (`firmware/pruebas/`, una por sensor): escáner I2C, calibración del HX711, MAX30102, MLX90614, OLED y LittleFS. Se hacen antes de probar el programa completo y sus capturas sirven de evidencia para el documento.
+**Uso:**
+- **Botón 2 (OK) en reposo:** mide sin paciente (queda en *Sin asignar*). En una medición, OK acepta y su pulsación larga cancela. **Botón 1:** pulsación larga en reposo = tara de la báscula.
+- **Orden desde la web:** con Wi-Fi y en reposo, el aparato pregunta a la API cada 5 s y mide al paciente de la orden. Recuerda la última orden atendida, así que si se cancela no la repite.
+- **Página del aparato:** con Wi-Fi, la pantalla de reposo muestra «IP 192.168.x.x». Desde un celular o PC en la misma red se abre `http://esa-IP`, se escribe el código del paciente y el PIN, y el aparato mide a ese paciente; también muestra las mediciones pendientes y la memoria usada. No usa internet. Es HTTP sin cifrar (el PIN solo protege de un uso casual), se bloquea 60 s tras 5 PIN incorrectos, y algunas redes (invitados, públicas) no dejan que los equipos se vean entre sí. Un código mal escrito crea un paciente nuevo: revísalo antes de medir.
+- **LEDs:** verde = todo bien, amarillo = aviso (pendientes por enviar, memoria al 80 %, sin hora o un sensor sin responder), rojo con buzzer = valor fuera de umbral (temperatura ≤ 35 °C o ≥ 38 °C, SpO₂ < 92 %).
 
-**Compilar sin el IDE:** `arduino-cli compile --fqbn esp32:esp32:esp32 firmware/gp03_monitor` (con `secrets.h` creado). El CI hace lo mismo con `secrets.example.h`.
+**Pruebas por separado** (`firmware/pruebas/`, una por sensor): escáner I2C, calibración del HX711, MAX30102, termistor NTC (ADC crudo, resistencia y °C), OLED y LittleFS. Son opcionales: sirven para diagnosticar un sensor cuando algo falla (cada una reemplaza al programa principal mientras está cargada) y sus capturas sirven de evidencia para el documento. La de calibración del HX711 sí se corre una vez.
+
+**Compilar sin el IDE:** `arduino-cli compile --fqbn esp32:esp32:esp32 firmware/gp03_monitor` (con `secrets.h` creado). El CI hace lo mismo con `secrets.example.h`. El firmware nuevo compila, pero todavía no se ha probado en la placa real.
 
 ## 🌿 Flujo de trabajo con Git
 
