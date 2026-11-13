@@ -5,9 +5,10 @@
 
 namespace sensors {
 
-enum SensorBit : uint8_t { SENSOR_OLED = 1, SENSOR_MLX = 2, SENSOR_MAX = 4, SENSOR_HX711 = 8 };
+enum SensorBit : uint8_t { SENSOR_OLED = 1, SENSOR_NTC = 2, SENSOR_MAX = 4, SENSOR_HX711 = 8 };
 
-// Inicia el bus I2C (100 kHz) y los sensores. Devuelve los bits de los que NO respondieron.
+// Inicia el bus I2C (100 kHz), el ADC del termistor y los sensores. Devuelve los bits de los que
+// NO respondieron (el NTC no usa I2C: se da por ausente si el ADC está pegado a un extremo).
 uint8_t begin();
 bool oledFound();
 
@@ -17,7 +18,7 @@ void weightStart();
 // true cuando el valor estuvo estable WEIGHT_WINDOW_MS; `live` es la lectura actual.
 bool weightStep(float& stableKg, float& liveKg);
 
-// Temperatura (infrarrojo, piel).
+// Temperatura (termistor NTC de contacto): true cuando la lectura se estabilizó; `live` es la actual.
 void temperatureStart();
 bool temperatureStep(float& tempC, float& liveC, int& progressPercent);
 

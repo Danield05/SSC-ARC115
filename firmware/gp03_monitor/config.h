@@ -6,7 +6,7 @@
 // Reglas del ESP32: no usar GPIO 6 a 11 (flash); 34 a 39 son solo entrada;
 // cuidado con 0, 2, 12 y 15 (arranque). El LED verde en GPIO12 funciona si va a GND con su
 // resistencia; si el equipo no arranca, no debe haber nada que lleve ese pin a 3.3 V.
-#define PIN_I2C_SDA 21     // OLED 0x3C, MAX30102 0x57, MLX90614 0x5A
+#define PIN_I2C_SDA 21     // OLED 0x3C, MAX30102 0x57
 #define PIN_I2C_SCL 22
 #define PIN_HX711_DT 18    // alimentar el HX711 a 3.3 V
 #define PIN_HX711_SCK 19
@@ -14,11 +14,12 @@
 #define PIN_LED_YELLOW 14
 #define PIN_LED_RED 13
 #define PIN_BUZZER 27
+#define PIN_NTC 35         // termistor NTC: ADC1, solo entrada. Cableado: 3V3 → NTC → GPIO35 → 10 kΩ → GND
 #define PIN_BTN_NEXT 4     // botón 1: siguiente (pulsación larga: tara de la báscula)
 #define PIN_BTN_OK 26      // botón 2: aceptar (pulsación larga: cancelar). PROVISIONAL: el prototipo
                            // solo tiene un botón; cablear el segundo a GPIO26 y GND.
 
-#define I2C_CLOCK_HZ 100000  // el MLX90614 usa SMBus: 100 kHz
+#define I2C_CLOCK_HZ 100000  // I2C estándar (100 kHz)
 #define OLED_ADDRESS 0x3C
 
 // ───────────── Umbrales de alerta (los mismos que el servidor) ─────────────
@@ -36,13 +37,25 @@
 #define WEIGHT_MIN_KG 1.0f         // por debajo se considera la báscula vacía
 #define WEIGHT_MAX_KG 500.0f       // límite del contrato con la API
 
-// ───────────── Temperatura (MLX90614, infrarrojo: mide la piel) ─────────────
-// Se calibra con al menos 10 mediciones contra un termómetro clínico, siempre en la misma
-// zona y a la misma distancia. La ventana de la carcasa debe quedar abierta.
-#define TEMP_OFFSET_C 0.0f
-#define TEMP_SAMPLES 8
-#define TEMP_SAMPLE_MS 150
-#define TEMP_VALID_MIN_C 25.0f     // fuera de este rango la lectura se descarta
+// ───────────── Temperatura (termistor NTC de 100 kΩ, de CONTACTO) ─────────────
+// Se apoya sobre la piel y tarda en llegar a su temperatura, así que la lectura se da por buena
+// cuando se estabiliza (poca variación durante TEMP_WINDOW_MS). Se calibra con al menos 10
+// mediciones contra un termómetro clínico, siempre en la misma zona y con el mismo contacto.
+// Se limpia entre pacientes.
+#define NTC_R_FIXED 10000.0f       // resistencia fija del divisor (ohmios)
+#define NTC_R0 100000.0f           // resistencia del NTC a NTC_T0_C
+#define NTC_BETA 3950.0f
+#define NTC_T0_C 25.0f
+#define NTC_ADC_SAMPLES 16         // lecturas del ADC que se promedian en cada muestra (baja el ruido)
+#define NTC_ADC_MIN_OK 50          // ADC pegado a un extremo = NTC desconectado o en corto
+#define NTC_ADC_MAX_OK 4045
+// Valor heredado del código de Roberto; recalibrar contra un termómetro de referencia.
+// Un NTC bien cableado no debería necesitar restar 20 °C: si hace falta, revisar el divisor.
+#define TEMP_OFFSET_C -20.0f
+#define TEMP_SAMPLE_MS 250
+#define TEMP_WINDOW_MS 4000        // estable = variación <= TEMP_STABLE_C durante este tiempo
+#define TEMP_STABLE_C 0.2f
+#define TEMP_VALID_MIN_C 25.0f     // fuera de este rango no hay lectura (sensor al aire o sin contacto)
 #define TEMP_VALID_MAX_C 45.0f
 
 // ───────────── Oximetría (MAX30102) ─────────────

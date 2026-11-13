@@ -1,6 +1,6 @@
 // SSC-ARC115 · Dispositivo de monitoreo de salud comunitario (GP03)
 //
-// Mide peso, temperatura (infrarroja) y SpO2/pulso de un paciente con código, muestra los
+// Mide peso, temperatura (termistor NTC de contacto) y SpO2/pulso de un paciente con código, muestra los
 // resultados en la OLED, los guarda en la memoria flash interna (LittleFS) y, cuando hay Wi-Fi,
 // los envía por lotes a la API. Funciona sin internet. No es un dispositivo de diagnóstico:
 // registra y avisa por umbral.
@@ -97,7 +97,7 @@ static bool measureBlocked(const char*& line1, const char*& line2) {
     line1 = "Sin hora", line2 = "Conecta el Wi-Fi";
   } else if (storage::isFull()) {
     line1 = "Memoria llena", line2 = "Sincroniza primero";
-  } else if (missingSensors & (sensors::SENSOR_HX711 | sensors::SENSOR_MLX | sensors::SENSOR_MAX)) {
+  } else if (missingSensors & (sensors::SENSOR_HX711 | sensors::SENSOR_NTC | sensors::SENSOR_MAX)) {
     line1 = "Sensor sin responder", line2 = "Revisa las conexiones";
   } else {
     return false;
@@ -195,7 +195,7 @@ static void temperatureState(input::Event ev) {
   if (due(200)) {
     char big[16], line[24];
     snprintf(big, sizeof(big), "%.1f C", liveTemp);
-    snprintf(line, sizeof(line), "Apunte a la frente %d%%", progress);
+    snprintf(line, sizeof(line), "Apoye en la piel %d%%", progress);
     display::showBig("Temperatura", big, line, patientLabel());
   }
 }
@@ -272,7 +272,7 @@ void setup() {
   webpage::begin();
   if (missingSensors) {
     char list[28] = "";
-    if (missingSensors & sensors::SENSOR_MLX) strcat(list, "MLX ");
+    if (missingSensors & sensors::SENSOR_NTC) strcat(list, "NTC ");
     if (missingSensors & sensors::SENSOR_MAX) strcat(list, "MAX ");
     if (missingSensors & sensors::SENSOR_HX711) strcat(list, "HX711 ");
     if (missingSensors & sensors::SENSOR_OLED) strcat(list, "OLED ");

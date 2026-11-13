@@ -1,4 +1,4 @@
-// Prueba F0 · Escáner I2C. Deben aparecer 0x3C (OLED), 0x57 (MAX30102) y 0x5A (MLX90614).
+// Prueba F0 · Escáner I2C. Deben aparecer 0x3C (OLED) y 0x57 (MAX30102). El termistor NTC no usa I2C.
 // Guardar una captura del monitor serial (115200) como evidencia para el documento.
 #include <Wire.h>
 
@@ -8,7 +8,7 @@
 void setup() {
   Serial.begin(115200);
   Wire.begin(PIN_SDA, PIN_SCL);
-  Wire.setClock(100000);  // el MLX90614 usa SMBus
+  Wire.setClock(100000);
 }
 
 void loop() {
@@ -21,6 +21,6 @@ void loop() {
       found++;
     }
   }
-  Serial.printf("Encontrados: %d (esperados: 0x3C, 0x57, 0x5A)\n\n", found);
+  Serial.printf("Encontrados: %d (esperados: 0x3C, 0x57)\n\n", found);
   delay(3000);
 }
