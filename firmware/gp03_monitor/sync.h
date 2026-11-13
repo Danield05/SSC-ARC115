@@ -17,6 +17,11 @@ void begin();
 // (no hace peticiones HTTPS, que pueden tardar hasta HTTP_TIMEOUT_MS).
 void update(bool allowBlocking);
 
+// Pregunta a la API si el promotor dejó una orden «Medir a este paciente» (cada COMMAND_POLL_MS,
+// y solo con Wi-Fi y hora). Es una petición HTTPS: llamarla solo en reposo. Si hay orden, copia
+// su id y el código del paciente y devuelve true.
+bool takeCommand(char* commandId, size_t commandSize, char* patient, size_t patientSize);
+
 Status status();
 bool timeValid();
 // Fecha y hora actuales en ISO-8601 UTC con Z. false si el reloj aún no se ha puesto.

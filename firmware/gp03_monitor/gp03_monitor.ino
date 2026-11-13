@@ -1,13 +1,20 @@
 // SSC-ARC115 · Dispositivo de monitoreo de salud comunitario (GP03)
 //
-// Mide peso, temperatura (infrarroja) y SpO2/pulso de un paciente con código, muestra los
+// Mide peso, temperatura (termistor NTC de contacto) y SpO2/pulso de un paciente con código, muestra los
 // resultados en la OLED, los guarda en la memoria flash interna (LittleFS) y, cuando hay Wi-Fi,
 // los envía por lotes a la API. Funciona sin internet. No es un dispositivo de diagnóstico:
 // registra y avisa por umbral.
 //
-// Flujo: REPOSO → ELEGIR_PACIENTE → MEDIR_PESO → MEDIR_TEMP → MEDIR_OXIMETRO → RESULTADOS → REPOSO
-//   Botón 1 (siguiente): cambia de paciente. Pulsación larga en reposo: tara de la báscula.
-//   Botón 2 (OK): acepta. Pulsación larga: cancela.
+// Flujo: REPOSO → MEDIR_PESO → MEDIR_TEMP → MEDIR_OXIMETRO → RESULTADOS → REPOSO
+//   El dispositivo no elige paciente. La medición empieza de tres formas:
+//     · Botón (pulsación corta) en reposo: sin paciente. Queda en la bandeja «Sin asignar» de la web y el
+//       promotor la asigna cuando hay internet.
+//     · Página local del aparato (webpage.h): desde un celular en la misma red se abre la IP que
+//       muestra la pantalla de reposo, se escribe el PIN y el código del paciente. No usa Internet.
+//     · Orden «Medir» de la web: en reposo y con Wi-Fi, el aparato pregunta a la API cada pocos
+//       segundos; si hay una orden, mide a ese paciente y la medición llega ya asignada.
+//   Un solo botón. Reposo: corta = medir, larga = tara de la báscula. Midiendo: larga = cancelar.
+//   Resultados: corta = guardar, larga = descartar.
 // Antes de compilar: copiar secrets.example.h como secrets.h y llenarlo.
 
 #include "alerts.h"
@@ -18,10 +25,10 @@
 #include "sensors.h"
 #include "storage.h"
 #include "sync.h"
+#include "webpage.h"
 
 enum class State : uint8_t {
   IDLE,
-  PICK_PATIENT,
   MEASURE_WEIGHT,
   MEASURE_TEMP,
   MEASURE_OXI,
@@ -39,15 +46,16 @@ static uint8_t memoryPercent = 0;
 static unsigned long lastMemoryCheck = 0;
 
 static Record current;
-static char patients[MAX_PATIENTS][PATIENT_CODE_LEN];
-static int patientCount = 0;
-static int patientIndex = 0;
+// Última orden «Medir» atendida. Si se cancela o se descarta, la API la sigue ofreciendo hasta que
+// vence (5 min); sin esto el aparato volvería a medir al mismo paciente.
+static char lastCommand[CMD_ID_LEN] = "";
 
 // Lecturas en vivo para la pantalla.
 static float liveWeight = 0, liveTemp = 0;
 
 static void enter(State next) {
   state = next;
+  webpage::setIdle(next == State::IDLE);
   stateSince = millis();
   lastDraw = 0;
 }
@@ -67,17 +75,34 @@ static bool due(unsigned long every) {
 
 static bool timedOut() { return millis() - stateSince > MEASURE_TIMEOUT_MS; }
 
-// ───────────── pacientes ─────────────
+// ───────────── paciente de la medición ─────────────
 
-// Usa la lista bajada de la API; si no hay, recorre P-0001 a P-00NN como respaldo.
-static void loadPatientList() {
-  patientCount = storage::loadPatients(patients, MAX_PATIENTS);
-  if (patientCount == 0) {
-    for (int i = 0; i < FALLBACK_PATIENTS && i < MAX_PATIENTS; i++)
-      snprintf(patients[i], PATIENT_CODE_LEN, "P-%04d", i + 1);
-    patientCount = FALLBACK_PATIENTS;
+// Lo que se muestra como paciente: su código, o «Sin asignar» si la medición no lo trae.
+static const char* patientLabel() { return current.patient[0] ? current.patient : "Sin asignar"; }
+
+static void startMeasurement(const char* patient, const char* command) {
+  memset(&current, 0, sizeof(current));
+  strlcpy(current.patient, patient, sizeof(current.patient));
+  strlcpy(current.command, command, sizeof(current.command));
+  sensors::weightStart();
+  alerts::beep();
+  enter(State::MEASURE_WEIGHT);
+}
+
+// Si no se puede medir ahora, devuelve true y el motivo en dos líneas para la pantalla.
+static bool measureBlocked(const char*& line1, const char*& line2) {
+  if (!storageOk) {
+    line1 = "Error de memoria", line2 = "No se puede medir";
+  } else if (!syncer::timeValid()) {
+    line1 = "Sin hora", line2 = "Conecta el Wi-Fi";
+  } else if (storage::isFull()) {
+    line1 = "Memoria llena", line2 = "Sincroniza primero";
+  } else if (missingSensors & (sensors::SENSOR_HX711 | sensors::SENSOR_NTC | sensors::SENSOR_MAX)) {
+    line1 = "Sensor sin responder", line2 = "Revisa las conexiones";
+  } else {
+    return false;
   }
-  patientIndex = 0;
+  return true;
 }
 
 // ───────────── estados ─────────────
@@ -101,48 +126,35 @@ static void drawIdle() {
   const char* footer = !storageOk                  ? "Error de memoria"
                        : storage::isFull()         ? "Memoria llena, sincroniza"
                        : (missingSensors != 0)     ? "Sensor sin responder"
-                                                   : "OK: medir  B1 largo: tara";
-  display::show("GP03 Monitor", wifiText(), l2, l3, footer);
+                                                   : "Corto:medir Largo:tara";
+  char ip[28];
+  display::show("GP03 Monitor", webpage::addressText(ip, sizeof(ip)) ? ip : wifiText(), l2, l3, footer);
 }
 
 static void idleState(input::Event ev) {
   if (due(500)) drawIdle();
-  if (ev == input::Event::NEXT_LONG) {
+  const char *why1, *why2;
+  if (ev == input::Event::LONG) {
     sensors::tare();
     alerts::beep();
     showMessage("Bascula en cero", "Tara hecha", 1200);
-  } else if (ev == input::Event::OK_SHORT) {
-    if (!storageOk) showMessage("Error de memoria", "No se puede medir");
-    else if (!syncer::timeValid()) showMessage("Sin hora", "Conecta el Wi-Fi", 2500);
-    else if (storage::isFull()) showMessage("Memoria llena", "Sincroniza primero", 2500);
-    else if (missingSensors & (sensors::SENSOR_HX711 | sensors::SENSOR_MLX | sensors::SENSOR_MAX))
-      showMessage("Sensor sin responder", "Revisa las conexiones", 2500);
-    else {
-      loadPatientList();
-      enter(State::PICK_PATIENT);
+  } else if (ev == input::Event::SHORT) {
+    if (measureBlocked(why1, why2)) showMessage(why1, why2, 2500);
+    else startMeasurement("", "");  // sin paciente: va a la bandeja «Sin asignar»
+  } else if (ev == input::Event::NONE) {
+    char commandId[CMD_ID_LEN], patient[PATIENT_CODE_LEN];
+    // Primero lo que pide la página local (rápido); la consulta a la API puede tardar unos segundos.
+    if (webpage::takeRequest(patient, sizeof(patient))) {
+      if (measureBlocked(why1, why2)) showMessage(why1, why2, 2500);
+      else startMeasurement(patient, "");
+    } else if (syncer::takeCommand(commandId, sizeof(commandId), patient, sizeof(patient))) {
+      // La API ofrece la orden mientras esté «tomada»: si ya se atendió (se canceló, se descartó
+      // o venció la medición), no se repite. Si no se puede medir, vence sola a los 5 min.
+      if (strcmp(commandId, lastCommand) == 0) return;
+      strlcpy(lastCommand, commandId, sizeof(lastCommand));
+      if (measureBlocked(why1, why2)) showMessage(why1, why2, 2500);
+      else startMeasurement(patient, commandId);
     }
-  }
-}
-
-static void pickPatientState(input::Event ev) {
-  if (ev == input::Event::NEXT_SHORT) patientIndex = (patientIndex + 1) % patientCount;
-  if (ev == input::Event::OK_LONG) {
-    enter(State::IDLE);
-    return;
-  }
-  if (ev == input::Event::OK_SHORT) {
-    memset(&current, 0, sizeof(current));
-    strcpy(current.patient, patients[patientIndex]);
-    sensors::weightStart();
-    alerts::beep();
-    enter(State::MEASURE_WEIGHT);
-    return;
-  }
-  if (ev == input::Event::NEXT_SHORT || due(1000)) {
-    char count[16];
-    snprintf(count, sizeof(count), "%d de %d", patientIndex + 1, patientCount);
-    display::showBig("Paciente", patients[patientIndex], count, "B1: siguiente  OK: elegir");
-    lastDraw = millis();
   }
 }
 
@@ -151,7 +163,7 @@ static void cancelMeasurement(const char* reason) {
 }
 
 static void weightState(input::Event ev) {
-  if (ev == input::Event::OK_LONG) return cancelMeasurement("");
+  if (ev == input::Event::LONG) return cancelMeasurement("");
   if (timedOut()) return cancelMeasurement("Sin peso estable");
   float stable;
   if (sensors::weightStep(stable, liveWeight)) {
@@ -164,12 +176,12 @@ static void weightState(input::Event ev) {
   if (due(200)) {
     char big[16];
     snprintf(big, sizeof(big), "%.1f kg", liveWeight);
-    display::showBig("Peso", big, "Suba y quede quieto", current.patient);
+    display::showBig("Peso", big, "Suba y quede quieto", patientLabel());
   }
 }
 
 static void temperatureState(input::Event ev) {
-  if (ev == input::Event::OK_LONG) return cancelMeasurement("");
+  if (ev == input::Event::LONG) return cancelMeasurement("");
   if (timedOut()) return cancelMeasurement("Sin lectura de temperatura");
   float value;
   int progress;
@@ -183,13 +195,13 @@ static void temperatureState(input::Event ev) {
   if (due(200)) {
     char big[16], line[24];
     snprintf(big, sizeof(big), "%.1f C", liveTemp);
-    snprintf(line, sizeof(line), "Apunte a la frente %d%%", progress);
-    display::showBig("Temperatura", big, line, current.patient);
+    snprintf(line, sizeof(line), "Apoye en la piel %d%%", progress);
+    display::showBig("Temperatura", big, line, patientLabel());
   }
 }
 
 static void oximeterState(input::Event ev) {
-  if (ev == input::Event::OK_LONG) return cancelMeasurement("");
+  if (ev == input::Event::LONG) return cancelMeasurement("");
   if (timedOut()) return cancelMeasurement("Sin lectura de SpO2");
   int spo2, bpm, progress;
   bool finger;
@@ -206,7 +218,7 @@ static void oximeterState(input::Event ev) {
     char line[24];
     if (finger) snprintf(line, sizeof(line), "Midiendo %d%%", progress);
     else snprintf(line, sizeof(line), "Ponga el dedo");
-    display::showBig("SpO2 y pulso", finger ? "Quieto..." : "- - -", line, current.patient);
+    display::showBig("SpO2 y pulso", finger ? "Quieto..." : "- - -", line, patientLabel());
   }
 }
 
@@ -219,19 +231,19 @@ static void saveCurrent() {
   // Línea CSV opcional por Serial, solo para depurar (el PC no es parte del sistema).
   Serial.printf("%s,%s,%.1f,%.1f,%d,%d,%d\n", current.ts, current.patient, current.weightKg,
                 current.tempC, current.spo2, current.bpm, current.alert ? 1 : 0);
-  showMessage("Guardado", current.patient, 1800);
+  showMessage("Guardado", patientLabel(), 1800);
 }
 
 static void resultsState(input::Event ev) {
-  if (ev == input::Event::OK_SHORT) return saveCurrent();
-  if (ev == input::Event::NEXT_SHORT || ev == input::Event::OK_LONG)
+  if (ev == input::Event::SHORT) return saveCurrent();
+  if (ev == input::Event::LONG)
     return showMessage("Descartado", "No se guardo", 1500);
   if (due(500)) {
     char l1[28], l2[28];
     snprintf(l1, sizeof(l1), "%.1f kg  %.1f C", current.weightKg, current.tempC);
     snprintf(l2, sizeof(l2), "SpO2 %d%%  Pulso %d", current.spo2, current.bpm);
     display::show(current.alert ? "ALERTA" : "Resultado", l1, l2,
-                  current.alert ? "Fuera de rango" : "Dentro del rango", "OK: guardar  B1: borrar");
+                  current.alert ? "Fuera de rango" : "Dentro del rango", "Corto:ok Largo:borrar");
   }
 }
 
@@ -257,9 +269,10 @@ void setup() {
   display::show("GP03 Monitor", "Iniciando...", DEVICE_ID);
   storageOk = storage::begin();
   syncer::begin();
+  webpage::begin();
   if (missingSensors) {
     char list[28] = "";
-    if (missingSensors & sensors::SENSOR_MLX) strcat(list, "MLX ");
+    if (missingSensors & sensors::SENSOR_NTC) strcat(list, "NTC ");
     if (missingSensors & sensors::SENSOR_MAX) strcat(list, "MAX ");
     if (missingSensors & sensors::SENSOR_HX711) strcat(list, "HX711 ");
     if (missingSensors & sensors::SENSOR_OLED) strcat(list, "OLED ");
@@ -276,11 +289,11 @@ void loop() {
   input::Event ev = input::poll();
   // Las peticiones HTTPS pueden tardar hasta HTTP_TIMEOUT_MS: solo se hacen en reposo.
   syncer::update(state == State::IDLE);
+  webpage::update();
   updateWarning();
 
   switch (state) {
     case State::IDLE: idleState(ev); break;
-    case State::PICK_PATIENT: pickPatientState(ev); break;
     case State::MEASURE_WEIGHT: weightState(ev); break;
     case State::MEASURE_TEMP: temperatureState(ev); break;
     case State::MEASURE_OXI: oximeterState(ev); break;

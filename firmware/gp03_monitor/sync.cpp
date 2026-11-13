@@ -20,8 +20,9 @@ static bool g_ntpStarted = false;
 static unsigned long g_lastWifiTry = 0;
 static unsigned long g_nextAttempt = 0;
 static unsigned long g_backoff = SYNC_BACKOFF_MIN_MS;
-static unsigned long g_lastPatients = 0;
-static bool g_patientsTried = false;
+static unsigned long g_lastCommand = 0;
+static unsigned long g_commandWait = COMMAND_POLL_MS;  // sube si la API no responde
+static bool g_commandTried = false;
 
 // ───────────── hora ─────────────
 
@@ -45,12 +46,13 @@ static String url(const String& path) { return String(API_URL) + path; }
 
 // Hace la petición con el certificado de la API verificado. Devuelve el código HTTP (negativo si
 // no hubo conexión) y deja la respuesta en `response`.
-static int request(const char* method, const String& path, const String& body, String& response) {
+static int request(const char* method, const String& path, const String& body, String& response,
+                   unsigned long timeoutMs = HTTP_TIMEOUT_MS, unsigned long connectMs = 10000) {
   WiFiClientSecure client;
   client.setCACert(ROOT_CA);  // setInsecure() solo para pruebas, y habría que declararlo
   HTTPClient http;
-  http.setTimeout(HTTP_TIMEOUT_MS);
-  http.setConnectTimeout(10000);
+  http.setTimeout(timeoutMs);
+  http.setConnectTimeout(connectMs);
   if (!http.begin(client, url(path))) return -1;
   http.addHeader("x-api-key", API_KEY);
   int code;
@@ -71,30 +73,43 @@ static void fail() {
   g_backoff = min(g_backoff * 2, (unsigned long)SYNC_BACKOFF_MAX_MS);
 }
 
-// ───────────── lista de pacientes ─────────────
+// ───────────── orden «Medir a este paciente» ─────────────
 
-// GET /devices/{id}/patients. La hora del servidor (server_time) no sirve para poner el reloj:
-// con la fecha de 1970 el certificado TLS no se puede validar, así que la hora sale de NTP.
-static void fetchPatients() {
-  g_patientsTried = true;
-  g_lastPatients = millis();
+// GET /devices/{id}/command. La web deja la orden en la API (un API HTTP no puede llamar al
+// aparato, que está detrás del router) y el aparato pregunta cada COMMAND_POLL_MS. Entregarla la
+// marca como «tomada» en el servidor. Devuelve true si hay una orden y la copia en los buffers.
+// La hora del servidor no sirve para poner el reloj: con la fecha de 1970 el certificado TLS no
+// se puede validar, así que la hora sale de NTP.
+bool takeCommand(char* commandId, size_t commandSize, char* patient, size_t patientSize) {
+  if (g_status != Status::ONLINE || WiFi.status() != WL_CONNECTED || !timeValid()) return false;
+  unsigned long now = millis();
+  if (g_commandTried && now - g_lastCommand < g_commandWait) return false;
+  g_commandTried = true;
+  g_lastCommand = now;
+
   String response;
-  int code = request("GET", String("/devices/") + DEVICE_ID + "/patients", "", response);
+  int code = request("GET", String("/devices/") + DEVICE_ID + "/command", "", response,
+                     COMMAND_TIMEOUT_MS, COMMAND_CONNECT_MS);
+  // Sin respuesta de la API (sin internet o caída): se espacian las consultas para que los botones
+  // no se sientan pegados; al responder, vuelve al ritmo normal.
+  g_commandWait = code > 0 ? COMMAND_POLL_MS : COMMAND_POLL_FAIL_MS;
   if (code == 401) {
     g_status = Status::KEY_INVALID;
     g_message = "Clave invalida";
-    return;
+    return false;
   }
-  if (code != 200) return;
+  if (code != 200) return false;
   JsonDocument doc;
-  if (deserializeJson(doc, response)) return;
-  static char codes[MAX_PATIENTS][PATIENT_CODE_LEN];
-  int n = 0;
-  for (JsonVariant v : doc["patients"].as<JsonArray>()) {
-    const char* c = v.as<const char*>();
-    if (c && strlen(c) < PATIENT_CODE_LEN && n < MAX_PATIENTS) strcpy(codes[n++], c);
-  }
-  if (n > 0) storage::savePatients(codes, n);
+  if (deserializeJson(doc, response)) return false;
+  JsonObject command = doc["command"].as<JsonObject>();
+  if (command.isNull()) return false;
+  const char* id = command["command_id"];
+  const char* patientCode = command["patient_code"];
+  if (!id || !patientCode || strlen(id) >= commandSize || strlen(patientCode) >= patientSize)
+    return false;
+  strcpy(commandId, id);
+  strcpy(patient, patientCode);
+  return true;
 }
 
 // ───────────── envío de mediciones ─────────────
@@ -108,7 +123,9 @@ static String buildBody(const Record* recs, int n) {
   for (int i = 0; i < n; i++) {
     JsonObject o = arr.add<JsonObject>();
     o["record_id"] = recs[i].id;
-    o["patient_code"] = recs[i].patient;
+    // Sin paciente (vacío) el campo se omite: la API lo manda a la bandeja «Sin asignar».
+    if (recs[i].patient[0]) o["patient_code"] = recs[i].patient;
+    if (recs[i].command[0]) o["command_id"] = recs[i].command;
     o["ts"] = recs[i].ts;
     o["weight_kg"] = round1(recs[i].weightKg);
     o["temp_c"] = round1(recs[i].tempC);
@@ -227,9 +244,6 @@ void update(bool allowBlocking) {
     g_ntpStarted = true;
   }
   if (!allowBlocking || !timeValid()) return;  // con la fecha de 1970 el TLS no valida
-
-  if (!g_patientsTried || now - g_lastPatients >= PATIENTS_REFRESH_MS) fetchPatients();
-  if (g_status == Status::KEY_INVALID) return;
 
   if (storage::pendingCount() > 0 && now >= g_nextAttempt) sendBatch();
 }

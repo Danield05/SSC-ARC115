@@ -12,12 +12,10 @@ struct Button {
   unsigned long pressedAt;
 };
 
-static Button next = {PIN_BTN_NEXT, false, false, 0, 0};
-static Button ok = {PIN_BTN_OK, false, false, 0, 0};
+static Button btn = {PIN_BTN, false, false, 0, 0};
 
 void begin() {
-  pinMode(PIN_BTN_NEXT, INPUT_PULLUP);
-  pinMode(PIN_BTN_OK, INPUT_PULLUP);
+  pinMode(PIN_BTN, INPUT_PULLUP);
 }
 
 // Devuelve cuánto duró la pulsación al soltar, o 0 si no hubo una pulsación completa.
@@ -38,10 +36,8 @@ static unsigned long update(Button& b) {
 }
 
 Event poll() {
-  unsigned long held = update(next);
-  if (held) return held >= BTN_LONG_MS ? Event::NEXT_LONG : Event::NEXT_SHORT;
-  held = update(ok);
-  if (held) return held >= BTN_LONG_MS ? Event::OK_LONG : Event::OK_SHORT;
+  unsigned long held = update(btn);
+  if (held) return held >= BTN_LONG_MS ? Event::LONG : Event::SHORT;
   return Event::NONE;
 }
 

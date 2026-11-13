@@ -7,6 +7,8 @@ casi todo el CSS externo. Cada plantilla devuelve (asunto, texto plano, html).
 from datetime import datetime, timedelta
 from html import escape
 
+from app.core.constants import UNASSIGNED_PREFIX, is_unassigned
+
 BRAND = "#0f766e"
 BRAND_DARK = "#115e59"
 INK = "#1f2937"
@@ -168,9 +170,33 @@ def _alert_value(item: dict, cause: str) -> str:
     return f"{item['temp_c']} °C · SpO₂ {item['spo2']} %"
 
 
+def _label(patient_code: str) -> str:
+    """Cómo se nombra al paciente en el correo: su código, o «Sin asignar» (y de qué aparato)
+    si la medición aún no tiene paciente. Nunca el nombre."""
+    if is_unassigned(patient_code):
+        return f"Sin asignar ({patient_code.removeprefix(UNASSIGNED_PREFIX)})"
+    return patient_code
+
+
+def _plural(n: int, singular: str, plural: str) -> str:
+    return f"{n} {singular if n == 1 else plural}"
+
+
+def _history_link(app_url: str, codes: list[str]) -> tuple[str, str]:
+    """Enlace y texto del botón: el historial del paciente si el lote es de uno solo, la bandeja
+    «Sin asignar» si todo está sin asignar, o la lista de pacientes."""
+    base = app_url.rstrip("/")
+    if len(codes) == 1 and is_unassigned(codes[0]):
+        return f"{base}/sin-asignar", "Abrir bandeja sin asignar"
+    if len(codes) == 1:
+        return f"{base}/patients/{codes[0]}", "Abrir historial"
+    return f"{base}/patients", "Abrir historial"
+
+
 def _alert_lines(alerts: list[dict], thresholds: dict) -> list[str]:
     return [
-        f"{item['patient_code']} · {_sv_time(item['ts'])} · {_alert_value(item, cause)} · {cause}"
+        f"{_label(item['patient_code'])} · {_sv_time(item['ts'])} · "
+        f"{_alert_value(item, cause)} · {cause}"
         for item in alerts
         for cause in alert_causes(item, thresholds)
     ]
@@ -211,13 +237,11 @@ def measurement_batch(
         by_patient.setdefault(item["patient_code"], []).append(item)
 
     if alerts:
-        subject = f"Alerta en {len(alerts)} mediciones · {device_name}"
+        subject = f"Alerta en {_plural(len(alerts), 'medición', 'mediciones')} · {device_name}"
     else:
-        subject = f"Lote de {device_name}: {n} mediciones"
+        subject = f"Lote de {device_name}: {_plural(n, 'medición', 'mediciones')}"
 
-    base = app_url.rstrip("/")
-    only = next(iter(by_patient)) if len(by_patient) == 1 else None
-    link = f"{base}/patients/{only}" if only else f"{base}/patients"
+    link, button_label = _history_link(app_url, list(by_patient))
     summarize = n > MAX_LISTED
     header = ["Hora (El Salvador)", "Peso", "Temperatura", "SpO₂", "Pulso"]
     more = f"Solo se muestran las alertas y un resumen por paciente (y {n - len(alerts)} más)."
@@ -228,13 +252,13 @@ def measurement_batch(
         text_parts.append("ALERTAS:\n" + "\n".join(f"  - {line}" for line in alert_lines) + "\n")
     for code, rows in by_patient.items():
         if summarize:
-            text_parts.append(f"{code}: {len(rows)} mediciones")
+            text_parts.append(f"{_label(code)}: {len(rows)} mediciones")
         else:
-            text_parts.append(code)
+            text_parts.append(_label(code))
             text_parts.extend("  " + " · ".join(_measure_cells(r)) for r in rows)
     if summarize:
         text_parts.append(f"\n{more}")
-    text_parts.append(f"\nHistorial: {link}\n\n{FOOTER}")
+    text_parts.append(f"\n{button_label}: {link}\n\n{FOOTER}")
 
     body = _title(escape(subject))
     body += f"<p>Se recibieron <strong>{n}</strong> mediciones nuevas de {escape(device_name)}.</p>"
@@ -242,13 +266,13 @@ def measurement_batch(
         body += _notice("Alertas: " + " | ".join(alert_lines))
     for code, rows in by_patient.items():
         if summarize:
-            body += f"<p><strong>{escape(code)}</strong>: {len(rows)} mediciones</p>"
+            body += f"<p><strong>{escape(_label(code))}</strong>: {len(rows)} mediciones</p>"
             continue
-        body += f'<p style="margin:16px 0 4px;"><strong>{escape(code)}</strong></p>'
+        body += f'<p style="margin:16px 0 4px;"><strong>{escape(_label(code))}</strong></p>'
         body += '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">'
         body += _row(header, header=True) + "".join(_row(_measure_cells(r)) for r in rows)
         body += "</table>"
     if summarize:
         body += _small(more)
-    body += _button(link, "Abrir historial")
+    body += _button(link, button_label)
     return subject, "\n".join(text_parts), _layout(subject, body)

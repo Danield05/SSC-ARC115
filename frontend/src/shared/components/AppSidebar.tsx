@@ -1,4 +1,4 @@
-import { Cpu, HeartPulse, KeyRound, LayoutDashboard, LogOut, UserCog, UsersRound } from 'lucide-react'
+import { Cpu, HeartPulse, Inbox, KeyRound, LayoutDashboard, LogOut, UserCog, UsersRound } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -41,6 +41,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { title: 'Resumen', url: '/dashboard', icon: LayoutDashboard, roles: ALL },
       { title: 'Pacientes', url: '/patients', icon: UsersRound, roles: ALL },
+      { title: 'Sin asignar', url: '/sin-asignar', icon: Inbox, roles: ALL },
     ],
   },
   {

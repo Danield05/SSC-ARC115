@@ -1,9 +1,9 @@
 #include "sensors.h"
 
-#include <Adafruit_MLX90614.h>
 #include <HX711.h>
 #include <MAX30105.h>
 #include <Wire.h>
+#include <math.h>
 #include <spo2_algorithm.h>
 
 #include "config.h"
@@ -11,10 +11,9 @@
 namespace sensors {
 
 static HX711 scale;
-static Adafruit_MLX90614 mlx;
 static MAX30105 particle;
 static bool g_oled = false;
-static bool g_hx = false, g_mlx = false, g_max = false;
+static bool g_hx = false, g_ntc = false, g_max = false;
 
 // ───────────── utilidades ─────────────
 
@@ -44,6 +43,24 @@ static int medianInt(int* values, int n) {
   return values[n / 2];
 }
 
+// ───────────── termistor NTC (ADC) ─────────────
+
+// Promedio de varias lecturas del ADC: baja el ruido del ESP32.
+static float readNtcAdc() {
+  uint32_t sum = 0;
+  for (int i = 0; i < NTC_ADC_SAMPLES; i++) sum += analogRead(PIN_NTC);
+  return sum / (float)NTC_ADC_SAMPLES;
+}
+
+// ADC → °C (ecuación de Beta). Divisor: 3V3 → NTC → ADC → resistencia fija → GND.
+static float adcToCelsius(float adc) {
+  if (adc < 1.0f) adc = 1.0f;
+  if (adc > 4094.0f) adc = 4094.0f;
+  float rNtc = NTC_R_FIXED * ((4095.0f / adc) - 1.0f);
+  float invT = logf(rNtc / NTC_R0) / NTC_BETA + 1.0f / (NTC_T0_C + 273.15f);
+  return 1.0f / invT - 273.15f;
+}
+
 // ───────────── arranque ─────────────
 
 static bool i2cPresent(uint8_t address) {
@@ -59,8 +76,12 @@ uint8_t begin() {
   g_oled = i2cPresent(OLED_ADDRESS);
   if (!g_oled) missing |= SENSOR_OLED;
 
-  g_mlx = mlx.begin();
-  if (!g_mlx) missing |= SENSOR_MLX;
+  // El NTC no responde por I2C: se da por ausente si el ADC queda pegado a un extremo.
+  analogReadResolution(12);
+  analogSetPinAttenuation(PIN_NTC, ADC_11db);
+  float adc = readNtcAdc();
+  g_ntc = adc >= NTC_ADC_MIN_OK && adc <= NTC_ADC_MAX_OK;
+  if (!g_ntc) missing |= SENSOR_NTC;
 
   g_max = particle.begin(Wire, I2C_SPEED_STANDARD);
   if (g_max) {
@@ -125,8 +146,12 @@ bool weightStep(float& stableKg, float& liveKg) {
 }
 
 // ───────────── temperatura ─────────────
+// El NTC mide por CONTACTO: tarda en llegar a la temperatura de la piel. La lectura se da por buena
+// cuando las últimas TEMP_WINDOW_MS casi no variaron (TEMP_STABLE_C); mientras tanto se muestra la
+// lectura en vivo.
 
-static float t_samples[TEMP_SAMPLES];
+static const int TEMP_N = TEMP_WINDOW_MS / TEMP_SAMPLE_MS;
+static float t_samples[TEMP_N];
 static int t_count = 0;
 static unsigned long t_last = 0;
 
@@ -136,24 +161,37 @@ void temperatureStart() {
 }
 
 bool temperatureStep(float& tempC, float& liveC, int& progressPercent) {
-  progressPercent = t_count * 100 / TEMP_SAMPLES;
-  if (!g_mlx) return false;
+  progressPercent = min(99, t_count * 100 / TEMP_N);
+  if (!g_ntc) return false;
   unsigned long now = millis();
   if (now - t_last < TEMP_SAMPLE_MS) return false;
   t_last = now;
-  float v = mlx.readObjectTempC() + TEMP_OFFSET_C;
-  if (isnan(v)) return false;
+
+  float v = adcToCelsius(readNtcAdc()) + TEMP_OFFSET_C;
   liveC = v;
   if (v < TEMP_VALID_MIN_C || v > TEMP_VALID_MAX_C) {
-    t_count = 0;  // lectura fuera de rango (sensor mal apuntado): se empieza de nuevo
+    t_count = 0;  // sensor al aire o sin contacto: se empieza de nuevo
+    progressPercent = 0;
     return false;
   }
-  t_samples[t_count++] = v;
-  progressPercent = t_count * 100 / TEMP_SAMPLES;
-  if (t_count < TEMP_SAMPLES) return false;
-  float sum = 0;
-  for (int i = 0; i < TEMP_SAMPLES; i++) sum += t_samples[i];
-  tempC = roundf(sum / TEMP_SAMPLES * 10.0f) / 10.0f;
+  if (t_count < TEMP_N) {
+    t_samples[t_count++] = v;
+  } else {
+    memmove(t_samples, t_samples + 1, sizeof(float) * (TEMP_N - 1));
+    t_samples[TEMP_N - 1] = v;
+  }
+  progressPercent = min(99, t_count * 100 / TEMP_N);
+  if (t_count < TEMP_N) return false;
+
+  float lo = t_samples[0], hi = t_samples[0], sum = 0;
+  for (int i = 0; i < TEMP_N; i++) {
+    lo = min(lo, t_samples[i]);
+    hi = max(hi, t_samples[i]);
+    sum += t_samples[i];
+  }
+  if (hi - lo > TEMP_STABLE_C) return false;  // todavía se está calentando o enfriando
+  tempC = roundf(sum / TEMP_N * 10.0f) / 10.0f;
+  progressPercent = 100;
   return true;
 }
 

@@ -181,7 +181,7 @@ jobs:
             - firmware/pruebas/i2c_scanner
             - firmware/pruebas/hx711_calibracion
             - firmware/pruebas/max30102_prueba
-            - firmware/pruebas/mlx90614_prueba
+            - firmware/pruebas/ntc_prueba
             - firmware/pruebas/oled_prueba
             - firmware/pruebas/littlefs_prueba
           libraries: |
@@ -191,8 +191,6 @@ jobs:
               version: 0.6.6
             - name: SparkFun MAX3010x Pulse and Proximity Sensor Library
               version: 1.1.2
-            - name: Adafruit MLX90614 Library
-              version: 2.1.7
             - name: Adafruit SSD1306
               version: 2.5.17
             - name: Adafruit GFX Library

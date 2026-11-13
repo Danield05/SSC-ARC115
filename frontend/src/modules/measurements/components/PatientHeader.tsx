@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { usePatient } from '../../patients/hooks/usePatient'
+import MeasureButton from './MeasureButton'
 import PatientTabs from './PatientTabs'
 
 interface Props {
@@ -28,13 +29,16 @@ export default function PatientHeader({ code, extra, intro }: Props) {
         <ArrowLeft className="size-4" />
         Pacientes
       </Link>
-      <div className="space-y-1">
-        {loading ? (
-          <Skeleton className="h-8 w-64 max-w-full" aria-label="Cargando paciente" />
-        ) : (
-          <h1 className="text-2xl font-semibold tracking-tight">{patient?.name || 'Paciente'}</h1>
-        )}
-        <p className="text-muted-foreground text-sm">{details}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          {loading ? (
+            <Skeleton className="h-8 w-64 max-w-full" aria-label="Cargando paciente" />
+          ) : (
+            <h1 className="text-2xl font-semibold tracking-tight">{patient?.name || 'Paciente'}</h1>
+          )}
+          <p className="text-muted-foreground text-sm">{details}</p>
+        </div>
+        <MeasureButton code={code} />
       </div>
       <PatientTabs code={code} />
       {intro && <p className="text-muted-foreground text-sm">{intro}</p>}

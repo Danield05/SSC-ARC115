@@ -96,7 +96,7 @@ export function getVitalInfo(key: VitalKey, t: AlertThresholds = DEFAULT_THRESHO
           'Una temperatura alta suele acompañar infecciones o inflamación. Una temperatura muy baja puede indicar hipotermia.',
         badge: { text: `Alerta: ${t.temp_low_c} °C o menos, ${t.temp_high_c} °C o más`, alert: true },
         intro: 'La temperatura del cuerpo en grados Celsius.',
-        how: 'Sensor infrarrojo MLX90614, sin contacto con la piel.',
+        how: 'Termistor NTC de contacto: se apoya sobre la piel.',
         reference: {
           rows: [
             { label: 'Alerta baja', value: `${t.temp_low_c} °C o menos` },
@@ -121,7 +121,7 @@ export function getVitalInfo(key: VitalKey, t: AlertThresholds = DEFAULT_THRESHO
           },
           {
             title: 'Tenlo en cuenta',
-            text: 'Los termómetros infrarrojos sin contacto pueden dar valores distintos a los de referencia.',
+            text: 'Un termómetro de contacto tarda unos segundos en estabilizarse y su lectura depende de cuánto toque la piel: puede dar valores distintos a los de referencia.',
           },
         ],
         sources: [

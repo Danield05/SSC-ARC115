@@ -30,8 +30,8 @@ const MEASURES: { icon: LucideIcon; title: string; sensor: string; text: string 
   {
     icon: Thermometer,
     title: 'Temperatura corporal',
-    sensor: 'Sensor MLX90614',
-    text: 'Infrarrojo, sin contacto: mide la temperatura de la piel. Avisa cuando es de 35 °C o menos, o de 38 °C o más.',
+    sensor: 'Termistor NTC',
+    text: 'De contacto: se apoya sobre la piel y mide su temperatura. Avisa cuando es de 35 °C o menos, o de 38 °C o más.',
   },
   {
     icon: Activity,
