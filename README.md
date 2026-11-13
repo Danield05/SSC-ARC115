@@ -22,7 +22,7 @@ El dispositivo trabaja sin internet: guarda todo en su memoria interna y sincron
 |---|---|---|
 | Hay internet | En la web, botón **Medir** en el paciente. La API guarda la orden y el aparato la consulta cada 5 s | Llega ya asignada a ese paciente |
 | Misma red Wi-Fi (con o sin internet) | **Página del aparato**: se abre su IP en un navegador, se escribe el código del paciente y un PIN | Queda guardada a nombre de ese paciente y se sincroniza cuando haya internet |
-| Sin red | Botón **OK** del aparato | Se guarda sin paciente; al sincronizar cae en la bandeja **Sin asignar** y se asigna desde la web |
+| Sin red | Pulsación corta del botón del aparato | Se guarda sin paciente; al sincronizar cae en la bandeja **Sin asignar** y se asigna desde la web |
 
 ## 🗂️ Estructura del repositorio
 
@@ -251,7 +251,7 @@ El código está en `firmware/gp03_monitor/` (C++, Arduino framework). Mide peso
 **Pines, umbrales y calibración:** todo en `config.h`. Los pines son una propuesta y hay que confirmarlos con la placa perforada. El factor de la báscula (`HX711_SCALE_FACTOR`, hoy 1.0 = sin calibrar) se obtiene con `firmware/pruebas/hx711_calibracion` y masas patrón. Con la partición por defecto el programa ocupa el 90 % de su espacio; si algún día no cabe, elegir *No OTA (2MB APP/2MB SPIFFS)*. Subir con «borrar toda la flash» borra los registros guardados.
 
 **Uso:**
-- **Botón 2 (OK) en reposo:** mide sin paciente (queda en *Sin asignar*). En una medición, OK acepta y su pulsación larga cancela. **Botón 1:** pulsación larga en reposo = tara de la báscula.
+- **Un solo botón** (pulsación corta o larga, según dure menos o más de 0,8 s). En reposo: corta = mide sin paciente (queda en *Sin asignar*); larga = tara de la báscula. Midiendo: larga = cancelar. En resultados: corta = guardar; larga = descartar.
 - **Orden desde la web:** con Wi-Fi y en reposo, el aparato pregunta a la API cada 5 s y mide al paciente de la orden. Recuerda la última orden atendida, así que si se cancela no la repite.
 - **Página del aparato:** con Wi-Fi, la pantalla de reposo muestra «IP 192.168.x.x». Desde un celular o PC en la misma red se abre `http://esa-IP`, se escribe el código del paciente y el PIN, y el aparato mide a ese paciente; también muestra las mediciones pendientes y la memoria usada. No usa internet. Es HTTP sin cifrar (el PIN solo protege de un uso casual), se bloquea 60 s tras 5 PIN incorrectos, y algunas redes (invitados, públicas) no dejan que los equipos se vean entre sí. Un código mal escrito crea un paciente nuevo: revísalo antes de medir.
 - **LEDs:** verde = todo bien, amarillo = aviso (pendientes por enviar, memoria al 80 %, sin hora o un sensor sin responder), rojo con buzzer = valor fuera de umbral (temperatura ≤ 35 °C o ≥ 38 °C, SpO₂ < 92 %).
