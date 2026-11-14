@@ -4,12 +4,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.modules.auth.dependencies import CurrentUser, require_roles
 from app.modules.patients import service
-from app.modules.patients.schemas import PatientCreate, PatientOut, PatientUpdate
+from app.modules.patients.schemas import DeletedCount, PatientCreate, PatientOut, PatientUpdate
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 any_role = require_roles("admin", "viewer", "promoter")
 can_write = require_roles("admin", "promoter")
+admin_only = require_roles("admin")
 
 
 @router.get("", response_model=list[PatientOut])
@@ -40,5 +41,14 @@ def update_patient(
         return service.update_patient(
             patient_code, body.model_dump(exclude_unset=True), user.role, user.email
         )
+    except service.PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+
+
+@router.delete("/{patient_code}", response_model=DeletedCount)
+def delete_patient(patient_code: str, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
+    """Borra la ficha y todas las mediciones del paciente. Solo administrador."""
+    try:
+        return {"deleted": service.delete_patient(patient_code, admin.email)}
     except service.PatientNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None

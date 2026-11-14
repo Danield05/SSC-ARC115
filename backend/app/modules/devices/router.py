@@ -107,3 +107,12 @@ def device_patients(device_id: str, x_api_key: str | None = Header(default=None)
         return service.patient_codes(device_id, x_api_key)
     except service.InvalidDeviceKeyError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Clave de dispositivo inválida") from None
+
+
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_device(device_id: str, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
+    """Borra el dispositivo y su bandeja «Sin asignar». Solo administrador."""
+    try:
+        service.delete_device(device_id, admin.email)
+    except service.DeviceNotFoundError:
+        raise _not_found() from None

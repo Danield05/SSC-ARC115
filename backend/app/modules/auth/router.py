@@ -123,3 +123,21 @@ def update_user(email: str, body: UserUpdate, admin: CurrentUser = Depends(admin
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "No puedes desactivar tu cuenta ni cambiar tu propio rol"
         ) from None
+
+
+@router.delete("/users/{email}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(email: str, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
+    try:
+        service.delete_user(email.lower(), admin.email)
+    except service.UserNotFoundError:
+        raise _user_not_found() from None
+    except service.SelfDeleteError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "No puedes borrar tu propia cuenta"
+        ) from None
+    except service.UserHasDevicesError as e:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "Este usuario tiene dispositivos a su nombre (" + ", ".join(e.device_ids) + "). "
+            "Reasígnalos o bórralos primero.",
+        ) from None

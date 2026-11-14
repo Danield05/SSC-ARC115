@@ -14,6 +14,9 @@ from app.modules.measurements.schemas import (
     AssignIn,
     AssignResult,
     BatchResult,
+    DeletedCount,
+    DeleteUnassignedIn,
+    DeleteUnassignedResult,
     HistoryOut,
     MeasurementBatch,
     ReviewIn,
@@ -30,6 +33,7 @@ router = APIRouter(prefix="/measurements", tags=["measurements"])
 history_router = APIRouter(prefix="/patients", tags=["measurements"])
 
 any_role = require_roles("admin", "viewer", "promoter")
+admin_only = require_roles("admin")
 reviewer_role = require_roles("admin", "promoter")  # el evaluador (viewer) solo lee
 
 
@@ -78,6 +82,38 @@ def assign_unassigned(body: AssignIn, user: CurrentUser = Depends(reviewer_role)
     except PatientNotFoundError:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
     return {"assigned": assigned, "conflicts": conflicts, "not_found": not_found}
+
+
+@router.post("/unassigned/delete", response_model=DeleteUnassignedResult)
+def delete_unassigned(body: DeleteUnassignedIn, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
+    """Borra mediciones de la bandeja (solo administrador). No se pueden recuperar."""
+    deleted, not_found = service.delete_unassigned(
+        [(i.device_id, i.ts) for i in body.items], admin.email
+    )
+    return {"deleted": deleted, "not_found": not_found}
+
+
+@history_router.delete("/{patient_code}/measurements", response_model=DeletedCount)
+def delete_history(patient_code: str, admin: CurrentUser = Depends(admin_only)):  # noqa: B008
+    """Borra todo el historial del paciente (la ficha se conserva). Solo administrador."""
+    try:
+        return {"deleted": service.delete_history(patient_code, admin.email)}
+    except PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+
+
+@history_router.delete("/{patient_code}/measurements/{ts}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_measurement(
+    patient_code: str,
+    ts: datetime,
+    admin: CurrentUser = Depends(admin_only),  # noqa: B008
+):
+    try:
+        service.delete_measurement(patient_code, ts, admin.email)
+    except PatientNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Paciente no encontrado") from None
+    except service.MeasurementNotFoundError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Medición no encontrada") from None
 
 
 @history_router.get("/{patient_code}/measurements", response_model=HistoryOut)

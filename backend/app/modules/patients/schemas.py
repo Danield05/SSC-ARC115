@@ -97,3 +97,7 @@ class PatientOut(BaseModel):
     first_seen: str = ""
     last_seen: str = ""
     device_ids: list[str] = []
+
+
+class DeletedCount(BaseModel):
+    deleted: int  # mediciones borradas junto con la ficha

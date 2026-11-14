@@ -108,3 +108,18 @@ def update_device(device_id: str, changes: dict) -> dict | None:
             return None
         raise
     return resp["Attributes"]
+
+
+def delete_device(device_id: str) -> bool:
+    """Borra el dispositivo. False si no existía."""
+    if device_id == COUNTER_KEY:
+        return False
+    try:
+        _table().delete_item(
+            Key={"device_id": device_id}, ConditionExpression="attribute_exists(device_id)"
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True
