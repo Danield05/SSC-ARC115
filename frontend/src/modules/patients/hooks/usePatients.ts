@@ -47,5 +47,11 @@ export function usePatients() {
     await reload()
   }
 
-  return { patients, loading, error, create, update }
+  const remove = async (code: string) => {
+    const result = await api.deletePatient(code)
+    await reload()
+    return result.deleted
+  }
+
+  return { patients, loading, error, create, update, remove }
 }

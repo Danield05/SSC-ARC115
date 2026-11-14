@@ -1,12 +1,15 @@
-import { Activity, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale } from 'lucide-react'
+import { Activity, Download, FileSpreadsheet, ShieldAlert, Thermometer, HeartPulse, Scale, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import ConfirmDeleteDialog from '@/shared/components/ConfirmDeleteDialog'
 import StatCard from '@/shared/components/StatCard'
 import VitalInfoDialog from '@/shared/components/VitalInfoDialog'
 import type { VitalKey } from '@/shared/vitals/vitalInfo'
+import { useAuth } from '../../auth/hooks/useAuth'
+import * as api from '../api/measurementsApi'
 import MeasurementsTable from '../components/MeasurementsTable'
 import MetricChart from '../components/MetricChart'
 import PatientHeader from '../components/PatientHeader'
@@ -14,6 +17,7 @@ import type { Point } from '../components/MetricChart'
 import RangeFilter from '../components/RangeFilter'
 import { useExport } from '../hooks/useExport'
 import { useHistory } from '../hooks/useHistory'
+import { notifyMeasurementReceived } from '../lib/events'
 import { formatDateTime, formatNumber, paddedDomain, spo2OutOfRange, tempOutOfRange } from '../lib/format'
 import type { Measurement, RangeDays } from '../types'
 
@@ -32,6 +36,10 @@ export default function PatientHistoryPage() {
   const exporter = useExport(code, days, anonymize)
   const [infoVital, setInfoVital] = useState<VitalKey>('weight')
   const [infoOpen, setInfoOpen] = useState(false)
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
+  const [deleteTarget, setDeleteTarget] = useState<'history' | Measurement | null>(null)
+  const [deleted, setDeleted] = useState('')
 
   function showInfo(key: VitalKey) {
     setInfoVital(key)
@@ -106,6 +114,12 @@ export default function PatientHistoryPage() {
             <Switch size="sm" checked={anonymize} onCheckedChange={setAnonymize} />
             Anonimizar
           </label>
+          {isAdmin && items.length > 0 && (
+            <Button size="sm" variant="destructive" onClick={() => setDeleteTarget('history')}>
+              <Trash2 className="size-4" />
+              Borrar historial
+            </Button>
+          )}
           <Button size="sm" disabled={exporter.busy !== null} onClick={() => exporter.download('xlsx')}>
             <FileSpreadsheet className="size-4" />
             {exporter.busy === 'xlsx' ? 'Preparando…' : 'Descargar Excel'}
@@ -121,6 +135,12 @@ export default function PatientHistoryPage() {
           </Button>
         </div>
       </div>
+
+      {deleted && (
+        <Alert>
+          <AlertDescription>{deleted}</AlertDescription>
+        </Alert>
+      )}
 
       {exporter.error && (
         <Alert variant="destructive">
@@ -200,7 +220,42 @@ export default function PatientHistoryPage() {
         </div>
       )}
 
-      {items.length > 0 && thresholds && <MeasurementsTable items={items} thresholds={thresholds} />}
+      {items.length > 0 && thresholds && (
+        <MeasurementsTable
+          items={items}
+          thresholds={thresholds}
+          onDelete={isAdmin ? (m) => setDeleteTarget(m) : undefined}
+        />
+      )}
+
+      <ConfirmDeleteDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title={deleteTarget === 'history' ? 'Borrar todo el historial' : 'Eliminar medición'}
+        description={
+          deleteTarget === 'history' ? (
+            <>
+              Se borrarán <strong>todas</strong> las mediciones de {code} (también las que quedan fuera del rango que
+              estás viendo). La ficha del paciente se conserva.
+            </>
+          ) : (
+            <>Se borrará la medición de {code} del {deleteTarget ? formatDateTime(deleteTarget.ts) : ''}.</>
+          )
+        }
+        confirmWord={deleteTarget === 'history' ? code : 'ELIMINAR'}
+        confirmLabel={deleteTarget === 'history' ? 'Borrar historial' : 'Eliminar medición'}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          if (deleteTarget === 'history') {
+            const { deleted: n } = await api.deleteHistory(code)
+            setDeleted(`Se borraron ${n} ${n === 1 ? 'medición' : 'mediciones'} de ${code}.`)
+          } else {
+            await api.deleteMeasurement(code, deleteTarget.ts)
+            setDeleted('Se eliminó la medición.')
+          }
+          notifyMeasurementReceived() // vuelve a pedir el historial y el resumen
+        }}
+      />
 
       <VitalInfoDialog vital={infoVital} open={infoOpen} onOpenChange={setInfoOpen} thresholds={thresholds} />
     </>

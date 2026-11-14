@@ -10,3 +10,7 @@ export const createPatient = (data: NewPatient) =>
 
 export const updatePatient = (code: string, changes: PatientChanges) =>
   apiFetch<Patient>(`/patients/${encodeURIComponent(code)}`, { method: 'PATCH', ...jsonBody(changes) })
+
+/** Borra la ficha y todas las mediciones del paciente; solo admin. Devuelve cuántas mediciones. */
+export const deletePatient = (code: string) =>
+  apiFetch<{ deleted: number }>(`/patients/${encodeURIComponent(code)}`, { method: 'DELETE' })

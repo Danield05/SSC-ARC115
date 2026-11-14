@@ -25,3 +25,9 @@ export const updateUser = (email: string, changes: { name?: string; email?: stri
 
 export const resendInvite = (email: string) =>
   apiFetch<User>(`/users/${encodeURIComponent(email)}/resend-invite`, { method: 'POST' })
+
+export const deleteDevice = (id: string) =>
+  apiFetch<null>(`/devices/${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+export const deleteUser = (email: string) =>
+  apiFetch<null>(`/users/${encodeURIComponent(email)}`, { method: 'DELETE' })
