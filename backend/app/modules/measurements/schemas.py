@@ -100,6 +100,19 @@ class AssignResult(BaseModel):
     not_found: list[str]  # ya asignada, inexistente o de un dispositivo que el rol no ve
 
 
+class DeleteUnassignedIn(BaseModel):
+    items: list[AssignRef] = Field(min_length=1, max_length=100)
+
+
+class DeleteUnassignedResult(BaseModel):
+    deleted: list[str]  # ts de las mediciones borradas
+    not_found: list[str]  # ya no existían o ya estaban asignadas a un paciente
+
+
+class DeletedCount(BaseModel):
+    deleted: int
+
+
 class LatestAlert(BaseModel):
     patient_code: str
     ts: str

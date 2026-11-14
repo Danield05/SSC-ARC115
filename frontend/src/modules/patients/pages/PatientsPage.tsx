@@ -1,4 +1,4 @@
-import { CircleCheck, LineChart, Pencil, Plus, Search, X } from 'lucide-react'
+import { CircleCheck, LineChart, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import ConfirmDeleteDialog from '@/shared/components/ConfirmDeleteDialog'
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import PatientForm from '../components/PatientForm'
@@ -20,7 +21,9 @@ const formatDate = (iso: string) =>
 export default function PatientsPage() {
   const { user } = useAuth()
   const canEdit = user?.role === 'admin' || user?.role === 'promoter'
-  const { patients, loading, error, create, update } = usePatients()
+  const isAdmin = user?.role === 'admin'
+  const { patients, loading, error, create, update, remove } = usePatients()
+  const [deleting, setDeleting] = useState<Patient | null>(null)
   const [dialog, setDialog] = useState<{ editing?: Patient } | null>(null)
   const [notice, setNotice] = useState('')
   // La búsqueda vive en la URL (?q=): al volver desde el historial de un paciente sigue puesta.
@@ -151,6 +154,17 @@ export default function PatientsPage() {
                             Editar
                           </Button>
                         )}
+                        {isAdmin && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleting(p)}
+                            aria-label={`Eliminar al paciente ${p.patient_code}`}
+                          >
+                            <Trash2 />
+                            Eliminar
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -160,6 +174,26 @@ export default function PatientsPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Eliminar paciente"
+        description={
+          <>
+            Se borrarán la ficha de <strong>{deleting?.name || 'este paciente'}</strong> ({deleting?.patient_code}) y
+            todas sus mediciones, y se cancelará su orden «Medir» si tiene una abierta. El código no se vuelve a
+            usar. Si el aparato manda después ese código, se creará una ficha vacía.
+          </>
+        }
+        confirmWord={deleting?.patient_code ?? ''}
+        confirmLabel="Eliminar paciente"
+        onConfirm={async () => {
+          if (!deleting) return
+          const count = await remove(deleting.patient_code)
+          setNotice(`Se eliminó a ${deleting.patient_code} y ${count === 1 ? 'su medición' : `sus ${count} mediciones`}.`)
+        }}
+      />
 
       <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
         <DialogContent className="max-h-[90svh] overflow-y-auto">

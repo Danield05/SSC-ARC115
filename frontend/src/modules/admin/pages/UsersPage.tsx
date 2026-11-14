@@ -1,4 +1,4 @@
-import { MailCheck, Pencil, Plus, Send } from 'lucide-react'
+import { MailCheck, Pencil, Plus, Send, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import ConfirmDeleteDialog from '@/shared/components/ConfirmDeleteDialog'
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { ROLE_OPTIONS } from '../../auth/types'
@@ -18,11 +19,12 @@ import type { NewUser } from '../types'
 
 export default function UsersPage() {
   const { user: me } = useAuth()
-  const { users, loading, error, create, update, setActive, setRole, resend } = useUsers()
+  const { users, loading, error, create, update, setActive, setRole, resend, remove } = useUsers()
   const [actionError, setActionError] = useState('')
   const [notice, setNotice] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<User | null>(null)
+  const [deleting, setDeleting] = useState<User | null>(null)
 
   async function run(action: () => Promise<void>, success?: string) {
     setActionError('')
@@ -143,6 +145,17 @@ export default function UsersPage() {
                             </Button>
                           )}
                           {!isMe && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setDeleting(u)}
+                              aria-label={`Eliminar a ${u.email}`}
+                            >
+                              <Trash2 />
+                              Eliminar
+                            </Button>
+                          )}
+                          {!isMe && (
                             <Switch
                               checked={u.active}
                               onCheckedChange={(checked) => run(() => setActive(u.email, checked))}
@@ -169,6 +182,26 @@ export default function UsersPage() {
           <UserForm onCreate={invite} onUpdate={update} onDone={() => setOpen(false)} />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Eliminar usuario"
+        description={
+          <>
+            Se borrará la cuenta de <strong>{deleting?.name || deleting?.email}</strong> ({deleting?.email}) y ya no
+            podrá iniciar sesión. Si es promotor y tiene dispositivos a su nombre, primero hay que reasignarlos o
+            eliminarlos. Si solo quieres quitarle el acceso por un tiempo, usa el interruptor «Desactivar».
+          </>
+        }
+        confirmWord={deleting?.email ?? ''}
+        confirmLabel="Eliminar usuario"
+        onConfirm={async () => {
+          if (!deleting) return
+          await remove(deleting.email)
+          setNotice(`Se eliminó al usuario ${deleting.email}.`)
+        }}
+      />
 
       <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>

@@ -44,6 +44,18 @@ class SelfChangeError(Exception):
     """El administrador intentó desactivarse o cambiarse el rol a sí mismo."""
 
 
+class SelfDeleteError(Exception):
+    """El administrador intentó borrar su propia cuenta."""
+
+
+class UserHasDevicesError(Exception):
+    """El promotor aún tiene dispositivos a su nombre."""
+
+    def __init__(self, device_ids: list[str]):
+        super().__init__(", ".join(device_ids))
+        self.device_ids = device_ids
+
+
 class AuthNotConfiguredError(Exception):
     pass
 
@@ -193,6 +205,24 @@ def update_user(
     if user is None:
         raise UserNotFoundError(email)
     return to_public(user)
+
+
+def delete_user(email: str, acting_email: str) -> None:
+    """Borra al usuario. No a uno mismo (así siempre queda un administrador activo) ni a
+    quien aún tenga dispositivos: primero hay que reasignarlos o borrarlos."""
+    if email == acting_email:
+        raise SelfDeleteError(email)
+    if repository.get_user(email) is None:
+        raise UserNotFoundError(email)
+    owned = sorted(
+        d["device_id"]
+        for d in devices_repository.list_devices()
+        if d.get("promoter_email") == email
+    )
+    if owned:
+        raise UserHasDevicesError(owned)
+    repository.delete_user(email)
+    logger.warning("%s borró al usuario %s", acting_email, email)
 
 
 def change_email(email: str, new_email: str) -> str:

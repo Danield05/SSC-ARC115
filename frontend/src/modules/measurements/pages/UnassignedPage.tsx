@@ -1,4 +1,4 @@
-import { CircleCheck, Inbox, Loader2, RefreshCw, TriangleAlert } from 'lucide-react'
+import { CircleCheck, Inbox, Loader2, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import ConfirmDeleteDialog from '@/shared/components/ConfirmDeleteDialog'
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import { usePatients } from '../../patients/hooks/usePatients'
@@ -24,7 +25,10 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export default function UnassignedPage() {
   const { user } = useAuth()
   const canAssign = user?.role === 'admin' || user?.role === 'promoter'
-  const { items, loading, error, reload, assign } = useUnassigned()
+  const isAdmin = user?.role === 'admin'
+  const { items, loading, error, reload, assign, discard } = useUnassigned()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deletedCount, setDeletedCount] = useState<number | null>(null)
   const { patients } = usePatients()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [patientCode, setPatientCode] = useState('')
@@ -101,6 +105,12 @@ export default function UnassignedPage() {
           </AlertDescription>
         </Alert>
       )}
+      {deletedCount !== null && (
+        <Alert>
+          <CircleCheck />
+          <AlertDescription>{plural(deletedCount, 'medición eliminada', 'mediciones eliminadas')}.</AlertDescription>
+        </Alert>
+      )}
       {!canAssign && (
         <Alert>
           <AlertDescription>Tu rol es de solo lectura: puedes ver la bandeja, pero no asignar mediciones.</AlertDescription>
@@ -129,9 +139,35 @@ export default function UnassignedPage() {
               {busy && <Loader2 className="animate-spin" />}
               Asignar {chosen.length > 0 ? `(${chosen.length})` : ''}
             </Button>
+            {isAdmin && (
+              <Button variant="destructive" onClick={() => setConfirmDelete(true)} disabled={busy || chosen.length === 0}>
+                <Trash2 />
+                Eliminar {chosen.length > 0 ? `(${chosen.length})` : ''}
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}
+
+      <ConfirmDeleteDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title="Eliminar mediciones sin asignar"
+        description={
+          <>
+            Se borrarán {plural(chosen.length, 'medición elegida', 'mediciones elegidas')} de la bandeja. Si eran de
+            un paciente, mejor asígnalas en lugar de borrarlas.
+          </>
+        }
+        confirmWord="ELIMINAR"
+        confirmLabel={`Eliminar ${plural(chosen.length, 'medición', 'mediciones')}`}
+        onConfirm={async () => {
+          const out = await discard(chosen.map((m) => ({ device_id: m.device_id, ts: m.ts })))
+          setSelected(new Set())
+          setResult(null)
+          setDeletedCount(out.deleted.length)
+        }}
+      />
 
       {loading ? (
         <p className="text-muted-foreground text-sm">Cargando…</p>

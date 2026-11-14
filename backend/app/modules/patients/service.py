@@ -1,10 +1,14 @@
 """Reglas de negocio del módulo patients."""
 
+import logging
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from app.modules.devices import repository as devices_repository
+from app.modules.measurements import repository as measurements_repository
 from app.modules.patients import repository
+
+logger = logging.getLogger(__name__)
 
 CODE_PREFIX = "P-"
 MAX_CODE_ATTEMPTS = 20
@@ -111,3 +115,24 @@ def update_patient(patient_code: str, changes: dict, role: str, email: str) -> d
     if updated is None:
         raise PatientNotFoundError(patient_code)
     return to_public(updated)
+
+
+def delete_patient(patient_code: str, admin_email: str) -> int:
+    """Borra la ficha y todas sus mediciones. Devuelve cuántas mediciones. Las órdenes «Medir»
+    abiertas de ese paciente se cancelan (no habría a quién asignar el registro)."""
+    if repository.get_patient(patient_code) is None:
+        raise PatientNotFoundError(patient_code)
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    for device in devices_repository.list_devices():
+        command = device.get("command")
+        if command and command.get("patient_code") == patient_code:
+            devices_repository.update_command(
+                device["device_id"],
+                command["command_id"],
+                {"status": "cancelada", "completed_at": now},
+                ("pendiente", "tomada"),
+            )
+    count = measurements_repository.delete_all(patient_code)
+    repository.delete_patient(patient_code)
+    logger.warning("%s borró al paciente %s (%d mediciones)", admin_email, patient_code, count)
+    return count
