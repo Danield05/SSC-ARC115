@@ -54,5 +54,10 @@ export function useDevices() {
 
   const rotate = async (id: string) => (await api.rotateKey(id)).api_key
 
-  return { devices, loading, error, create, update, setActive, rotate }
+  const remove = async (id: string) => {
+    await api.deleteDevice(id)
+    await reload()
+  }
+
+  return { devices, loading, error, create, update, setActive, rotate, remove }
 }

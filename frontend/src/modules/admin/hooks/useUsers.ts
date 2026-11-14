@@ -61,5 +61,10 @@ export function useUsers() {
     await api.resendInvite(email)
   }
 
-  return { users, loading, error, create, update, setActive, setRole, resend }
+  const remove = async (email: string) => {
+    await api.deleteUser(email)
+    await reload()
+  }
+
+  return { users, loading, error, create, update, setActive, setRole, resend, remove }
 }

@@ -1,4 +1,4 @@
-import { TriangleAlert } from 'lucide-react'
+import { Trash2, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,10 +17,12 @@ interface Props {
   /** De la más antigua a la más nueva; la tabla las muestra al revés. */
   items: Measurement[]
   thresholds: Thresholds
+  /** Solo el administrador: pide borrar una medición (la confirmación la maneja la página). */
+  onDelete?: (m: Measurement) => void
 }
 
 /** Los mismos datos de las gráficas en tabla: la forma de leerlos sin pasar el puntero. */
-export default function MeasurementsTable({ items, thresholds }: Props) {
+export default function MeasurementsTable({ items, thresholds, onDelete }: Props) {
   const [shown, setShown] = useState(PAGE)
   const deviations = useMemo(
     () => ({
@@ -57,6 +59,7 @@ export default function MeasurementsTable({ items, thresholds }: Props) {
               <TableHead>Peso</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead>Dispositivo</TableHead>
+              {onDelete && <TableHead className="w-10" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -105,6 +108,19 @@ export default function MeasurementsTable({ items, thresholds }: Props) {
                   </div>
                 </TableCell>
                 <TableCell className="font-mono text-xs">{m.device_id}</TableCell>
+                {onDelete && (
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-destructive"
+                      onClick={() => onDelete(m)}
+                      aria-label={`Eliminar la medición del ${formatDateTime(m.ts)}`}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

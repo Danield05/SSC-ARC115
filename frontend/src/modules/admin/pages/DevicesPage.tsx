@@ -1,4 +1,4 @@
-import { KeyRound, Pencil, Plus } from 'lucide-react'
+import { KeyRound, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import ConfirmDeleteDialog from '@/shared/components/ConfirmDeleteDialog'
 import PageHeader from '@/shared/components/PageHeader'
 import { useAuth } from '../../auth/hooks/useAuth'
 import ApiKeyNotice from '../components/ApiKeyNotice'
@@ -17,11 +18,12 @@ import type { Device } from '../types'
 export default function DevicesPage() {
   const { user } = useAuth()
   const canEdit = user?.role === 'admin'
-  const { devices, loading, error, create, update, setActive, rotate } = useDevices()
+  const { devices, loading, error, create, update, setActive, rotate, remove } = useDevices()
   const [shown, setShown] = useState<{ id: string; key: string } | null>(null)
   const [actionError, setActionError] = useState('')
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<Device | null>(null)
+  const [deleting, setDeleting] = useState<Device | null>(null)
 
   async function run(action: () => Promise<void>) {
     setActionError('')
@@ -106,6 +108,15 @@ export default function DevicesPage() {
                             <KeyRound />
                             Nueva clave
                           </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeleting(d)}
+                            aria-label={`Eliminar ${d.device_id}`}
+                          >
+                            <Trash2 />
+                            Eliminar
+                          </Button>
                         </div>
                       </TableCell>
                     )}
@@ -135,6 +146,25 @@ export default function DevicesPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Eliminar dispositivo"
+        description={
+          <>
+            Se borrará <strong>{deleting?.name}</strong> ({deleting?.device_id}), su clave dejará de funcionar y se
+            borrarán sus mediciones de «Sin asignar». Las mediciones que ya están en los pacientes se conservan. Si
+            solo quieres que deje de sincronizar, usa el interruptor «Desactivar».
+          </>
+        }
+        confirmWord={deleting?.device_id ?? ''}
+        confirmLabel="Eliminar dispositivo"
+        onConfirm={async () => {
+          if (!deleting) return
+          await remove(deleting.device_id)
+        }}
+      />
 
       <Dialog open={editing !== null} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>

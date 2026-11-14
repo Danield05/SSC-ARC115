@@ -44,5 +44,12 @@ export function useUnassigned() {
     return result
   }
 
-  return { items, loading, error, reload, assign }
+  /** Borra (sin posibilidad de recuperar) las mediciones elegidas y vuelve a pedir la bandeja. */
+  const discard = async (chosen: { device_id: string; ts: string }[]) => {
+    const result = await api.deleteUnassigned(chosen)
+    await reload()
+    return result
+  }
+
+  return { items, loading, error, reload, assign, discard }
 }

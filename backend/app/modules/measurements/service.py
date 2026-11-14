@@ -1,5 +1,6 @@
 """Reglas de negocio del módulo measurements."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -11,6 +12,8 @@ from app.modules.measurements.schemas import BatchResult, MeasurementBatch, Reco
 from app.modules.patients import repository as patients_repository
 from app.modules.patients import service as patients_service
 from app.modules.patients.bmi import bmi, bmi_category
+
+logger = logging.getLogger(__name__)
 
 
 def _iso_utc(ts: datetime) -> str:
@@ -352,3 +355,37 @@ def export_file(
         anonymous=anonymize,
     )
     return content, EXPORT_TYPES["xlsx"], name
+
+
+def delete_history(patient_code: str, admin_email: str) -> int:
+    """Borra todas las mediciones del paciente (la ficha se queda). Devuelve cuántas."""
+    if patients_repository.get_patient(patient_code) is None:
+        raise patients_service.PatientNotFoundError(patient_code)
+    count = repository.delete_all(patient_code)
+    patients_repository.clear_activity(patient_code)
+    logger.warning("%s borró el historial de %s (%d mediciones)", admin_email, patient_code, count)
+    return count
+
+
+def delete_measurement(patient_code: str, when: datetime, admin_email: str) -> None:
+    if patients_repository.get_patient(patient_code) is None:
+        raise patients_service.PatientNotFoundError(patient_code)
+    ts = _iso_utc(when)
+    if not repository.delete_measurement(patient_code, ts):
+        raise MeasurementNotFoundError(ts)
+    logger.warning("%s borró la medición %s de %s", admin_email, ts, patient_code)
+
+
+def delete_unassigned(refs: list[tuple[str, datetime]], admin_email: str):
+    """Borra mediciones de la bandeja. Devuelve (borradas, no encontradas) con los `ts`.
+    Las ya asignadas a un paciente no se tocan: cuentan como no encontradas."""
+    deleted: list[str] = []
+    not_found: list[str] = []
+    for device_id, when in refs:
+        ts = _iso_utc(when)
+        if repository.delete_measurement(unassigned_key(device_id), ts, unassigned_only=True):
+            deleted.append(ts)
+        else:
+            not_found.append(ts)
+    logger.warning("%s borró %d mediciones sin asignar", admin_email, len(deleted))
+    return deleted, not_found

@@ -1,11 +1,16 @@
 """Reglas de negocio del módulo devices."""
 
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 
+from app.core.constants import unassigned_key
 from app.core.security import hash_api_key, verify_api_key
 from app.modules.devices import repository
+from app.modules.measurements import repository as measurements_repository
 from app.modules.patients import service as patients_service
+
+logger = logging.getLogger(__name__)
 
 ID_PREFIX = "ESP32-GP03-"
 MAX_ID_ATTEMPTS = 20
@@ -259,3 +264,13 @@ def patient_codes(device_id: str, api_key: str | None) -> dict:
         "server_time": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "patients": [p["patient_code"] for p in patients],
     }
+
+
+def delete_device(device_id: str, admin_email: str) -> None:
+    """Borra el dispositivo y su bandeja «Sin asignar». Las mediciones que ya están en los
+    pacientes se quedan."""
+    if repository.get_device(device_id) is None:
+        raise DeviceNotFoundError(device_id)
+    tray = measurements_repository.delete_all(unassigned_key(device_id))
+    repository.delete_device(device_id)
+    logger.warning("%s borró el dispositivo %s (%d sin asignar)", admin_email, device_id, tray)

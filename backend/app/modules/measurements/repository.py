@@ -91,3 +91,39 @@ def list_measurements(patient_code: str, start: str, end: str, limit: int) -> li
         resp = table.query(ExclusiveStartKey=resp["LastEvaluatedKey"], **kwargs)
         items.extend(resp.get("Items", []))
     return list(reversed(items[:limit]))
+
+
+def delete_measurement(patient_code: str, ts: str, unassigned_only: bool = False) -> bool:
+    """Borra una medición. False si no existe (o, con `unassigned_only`, si ya fue asignada:
+    esas se conservan para que un reenvío siga siendo un duplicado)."""
+    condition = "attribute_exists(patient_code)"
+    if unassigned_only:
+        condition += " AND attribute_not_exists(assigned_to)"
+    try:
+        _table().delete_item(
+            Key={"patient_code": patient_code, "ts": ts}, ConditionExpression=condition
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True
+
+
+def delete_all(patient_code: str) -> int:
+    """Borra todas las mediciones de la partición `patient_code`. Devuelve cuántas."""
+    table = _table()
+    kwargs = {
+        "KeyConditionExpression": Key("patient_code").eq(patient_code),
+        "ProjectionExpression": "patient_code, ts",
+    }
+    count = 0
+    while True:
+        resp = table.query(**kwargs)
+        with table.batch_writer() as writer:
+            for item in resp.get("Items", []):
+                writer.delete_item(Key={"patient_code": item["patient_code"], "ts": item["ts"]})
+                count += 1
+        if "LastEvaluatedKey" not in resp:
+            return count
+        kwargs["ExclusiveStartKey"] = resp["LastEvaluatedKey"]

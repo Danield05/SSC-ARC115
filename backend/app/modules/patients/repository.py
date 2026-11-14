@@ -98,3 +98,27 @@ def touch_patient(patient_code: str, ts: str, device_id: str) -> None:
     )
     _update_if(patient_code, "last_seen", ts, "<")
     _update_if(patient_code, "first_seen", ts, ">")
+
+
+def delete_patient(patient_code: str) -> bool:
+    """Borra la ficha. False si no existía."""
+    if patient_code == COUNTER_KEY:
+        return False
+    try:
+        _table().delete_item(
+            Key={"patient_code": patient_code},
+            ConditionExpression="attribute_exists(patient_code)",
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ConditionalCheckFailedException":
+            return False
+        raise
+    return True
+
+
+def clear_activity(patient_code: str) -> None:
+    """Quita lo que se deriva de las mediciones (tras borrar el historial)."""
+    _table().update_item(
+        Key={"patient_code": patient_code},
+        UpdateExpression="REMOVE first_seen, last_seen, device_ids",
+    )

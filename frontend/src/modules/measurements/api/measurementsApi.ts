@@ -54,3 +54,20 @@ export const cancelMeasure = (deviceId: string) =>
 
 /** Alertas de los últimos 7 días que el rol puede ver. */
 export const fetchAlertsSummary = () => apiFetch<AlertsSummary>('/measurements/alerts-summary')
+
+/** Borra todo el historial del paciente (la ficha se queda); solo admin. */
+export const deleteHistory = (code: string) =>
+  apiFetch<{ deleted: number }>(`/patients/${encodeURIComponent(code)}/measurements`, { method: 'DELETE' })
+
+/** Borra una medición; solo admin. */
+export const deleteMeasurement = (code: string, ts: string) =>
+  apiFetch<null>(`/patients/${encodeURIComponent(code)}/measurements/${encodeURIComponent(ts)}`, {
+    method: 'DELETE',
+  })
+
+/** Borra mediciones de la bandeja «Sin asignar»; solo admin. */
+export const deleteUnassigned = (items: { device_id: string; ts: string }[]) =>
+  apiFetch<{ deleted: string[]; not_found: string[] }>('/measurements/unassigned/delete', {
+    method: 'POST',
+    ...jsonBody({ items }),
+  })
